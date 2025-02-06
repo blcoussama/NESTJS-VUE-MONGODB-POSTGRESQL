@@ -1,6 +1,16 @@
 import mongoose from "mongoose";
 
 const jobSchema = new mongoose.Schema({
+    company: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Company',
+        required: true
+    },
+    created_by: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+    },
     title: {
         type: String,
         required: true
@@ -31,16 +41,6 @@ const jobSchema = new mongoose.Schema({
     },
     isOpen: {
         type: Boolean,
-        required: true
-    },
-    company: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Company',
-        required: true
-    },
-    created_by: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
         required: true
     },
     applications: [

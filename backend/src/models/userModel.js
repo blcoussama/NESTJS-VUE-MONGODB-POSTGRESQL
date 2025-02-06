@@ -39,10 +39,10 @@ const userSchema = mongoose.Schema({
                 type: String
             }
         ],
-        company: {
+        companies: [{
             type: mongoose.Schema.Types.ObjectId,
             ref: "Company"  
-        }
+        }]
     },
     lastLogin: {
         type: Date,

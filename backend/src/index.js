@@ -4,6 +4,8 @@ import { connectDB } from './database/dbConfig.js';
 import cookieParser from 'cookie-parser';
 import AuthRoutes from "./routes/authRoutes.js"
 import UserRoutes from "./routes/userRoutes.js"
+import CompanyRoutes from "./routes/companyRoutes.js"
+import JobRoutes from "./routes/jobRoutes.js"
 import cors from "cors"
 
 dotenv.config()
@@ -24,6 +26,8 @@ app.use(cookieParser()); // Parse incoming cookies
 // Routes
 app.use("/api/auth", AuthRoutes)
 app.use("/api/user", UserRoutes)
+app.use("/api/company", CompanyRoutes)
+app.use("/api/job", JobRoutes)
 
 // Start the server only after connecting to the database
 connectDB()
