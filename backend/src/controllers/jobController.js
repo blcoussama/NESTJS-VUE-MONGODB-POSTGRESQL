@@ -236,3 +236,129 @@ export const deleteJob = async (req, res) => {
     return res.status(500).json({ success: false, message: "An error occurred while deleting the job." });
   }
 };
+
+export const getJobsByRecruiter = async (req, res) => {
+  try {
+    const recruiterId = req.user && req.user.userId;
+    if (!recruiterId) {
+      return res.status(401).json({ success: false, message: "Unauthorized. User not found." });
+    }
+
+    const jobs = await Job.find({ created_by: recruiterId }).sort({ createdAt: -1 });
+
+    return res.status(200).json({ success: true, jobs });
+  } catch (error) {
+    console.error("Error fetching recruiter jobs:", error);
+    return res.status(500).json({ success: false, message: "An error occurred while fetching recruiter jobs." });
+  }
+};
+
+
+export const getAllJobs = async (req, res) => {
+  try {
+    // Extract query parameters for filtering and pagination
+    const {
+      search,
+      location,
+      experienceLevel,
+      salary,      // this can be "discutable" if the user wants negotiable jobs
+      salaryMin,
+      salaryMax,
+      page = 1,
+      limit = 10
+    } = req.query;
+
+    // Build a filter object; for example, only show open jobs
+    let filter = { isOpen: true };
+
+    // Search filter on job title (case-insensitive)
+    if (search) {
+      filter.title = { $regex: search, $options: "i" };
+    }
+
+    // Location filter (case-insensitive)
+    if (location) {
+      filter.location = { $regex: location, $options: "i" };
+    }
+
+    // Experience level filter
+    if (experienceLevel) {
+      filter.experienceLevel = experienceLevel;
+    }
+
+    // Salary filtering
+    // If the query parameter 'salary' is provided as "discutable", filter for that.
+    if (salary && salary.toLowerCase() === "discutable") {
+      filter.salary = "discutable";
+    } else if (salaryMin || salaryMax) {
+      // Otherwise, if salaryMin or salaryMax is provided, assume a numeric filter.
+      filter.salary = {};
+      if (salaryMin) filter.salary.$gte = Number(salaryMin);
+      if (salaryMax) filter.salary.$lte = Number(salaryMax);
+    }
+    
+    // Execute the query with pagination and sort the results (newest first)
+    const jobs = await Job.find(filter)
+      .populate("company", "name location")  // Optionally populate company details
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(Number(limit));
+
+    // Get the total count for pagination
+    const totalJobs = await Job.countDocuments(filter);
+
+    return res.status(200).json({
+      success: true,
+      jobs,
+      totalPages: Math.ceil(totalJobs / limit),
+      currentPage: Number(page)
+    });
+  } catch (error) {
+    console.error("Error fetching jobs:", error);
+    return res.status(500).json({
+      success: false,
+      message: "An error occurred while fetching jobs."
+    });
+  }
+};
+
+
+
+export const viewJob = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid job ID format." });
+    }
+
+    const job = await Job.findById(id).populate("company", "name location"); // Populate company details
+    if (!job) {
+      return res.status(404).json({ success: false, message: "Job not found." });
+    }
+
+    return res.status(200).json({ success: true, job });
+  } catch (error) {
+    console.error("Error fetching job:", error);
+    return res.status(500).json({ success: false, message: "An error occurred while fetching the job." });
+  }
+};
+
+
+export const getJobsByCompany = async (req, res) => {
+  try {
+    const { companyId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(companyId)) {
+      return res.status(400).json({ success: false, message: "Invalid company ID format." });
+    }
+
+    const jobs = await Job.find({ company: companyId }).sort({ createdAt: -1 });
+
+    return res.status(200).json({ success: true, jobs });
+  } catch (error) {
+    console.error("Error fetching jobs for company:", error);
+    return res.status(500).json({ success: false, message: "An error occurred while fetching company jobs." });
+  }
+};

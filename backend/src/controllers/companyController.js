@@ -212,7 +212,7 @@ export const getRecruiterCompanies = async (req, res) => {
 };
 
 
-export const getCompanyById = async (req, res) => {
+export const viewCompany = async (req, res) => {
   try {
     // The company id is provided as a URL parameter
     const { id } = req.params;

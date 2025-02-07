@@ -36,9 +36,13 @@ const userSchema = mongoose.Schema({
         },
         skills: [
             {
-                type: String
+                type: String,
             }
         ],
+        resume: { 
+            type: String,
+            default: ""
+        },
         companies: [{
             type: mongoose.Schema.Types.ObjectId,
             ref: "Company"  
