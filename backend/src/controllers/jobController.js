@@ -237,11 +237,14 @@ export const deleteJob = async (req, res) => {
   }
 };
 
+
 export const getJobsByRecruiter = async (req, res) => {
   try {
-    const recruiterId = req.user && req.user.userId;
-    if (!recruiterId) {
-      return res.status(401).json({ success: false, message: "Unauthorized. User not found." });
+    const { recruiterId } = req.params; // Recruiter ID is now taken from the request params
+
+    // Validate recruiterId format
+    if (!mongoose.Types.ObjectId.isValid(recruiterId)) {
+      return res.status(400).json({ success: false, message: "Invalid recruiter ID format." });
     }
 
     const jobs = await Job.find({ created_by: recruiterId }).sort({ createdAt: -1 });

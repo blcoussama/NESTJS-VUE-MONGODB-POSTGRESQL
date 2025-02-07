@@ -8,7 +8,7 @@ const router = express.Router();
 router.post('/post', VerifyToken, authorizedRoles("recruiter"), postJob);
 router.put('/update/:id', VerifyToken, authorizedRoles("recruiter"), updateJob);
 router.delete('/delete/:id', VerifyToken, authorizedRoles("recruiter"), deleteJob);
-router.get('/my-jobs', VerifyToken, authorizedRoles("recruiter"), getJobsByRecruiter);
+router.get('/posted-jobs/:recruiterId', VerifyToken, getJobsByRecruiter);
 router.get('/all', VerifyToken, getAllJobs)
 router.get('/:id', VerifyToken, viewJob);
 router.get('/company-jobs/:companyId', VerifyToken, getJobsByCompany);
