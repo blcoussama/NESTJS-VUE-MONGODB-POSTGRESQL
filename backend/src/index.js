@@ -7,6 +7,7 @@ import UserRoutes from "./routes/userRoutes.js"
 import CompanyRoutes from "./routes/companyRoutes.js"
 import JobRoutes from "./routes/jobRoutes.js"
 import ApplicationRoutes from "./routes/applicationRoutes.js"
+import savedJobRoutes from "./routes/savedJobRoutes.js"
 import cors from "cors"
 
 dotenv.config()
@@ -30,6 +31,7 @@ app.use("/api/user", UserRoutes)
 app.use("/api/company", CompanyRoutes)
 app.use("/api/job", JobRoutes)
 app.use("/api/application", ApplicationRoutes)
+app.use("/api/saved-job", savedJobRoutes)
 
 // Start the server only after connecting to the database
 connectDB()
