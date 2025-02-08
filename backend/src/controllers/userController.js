@@ -106,7 +106,7 @@ export const candidateProfileSetup = async (req, res) => {
     if (!candidateId) {
       return res.status(401).json({ success: false, message: "Unauthorized. User not found." });
     }
-
+ 
     const { firstName, lastName, description, skills } = req.body;
     
     if (!firstName || !lastName) {
@@ -282,7 +282,6 @@ export const viewUserProfile = async (req, res) => {
     if (user.role === "candidate") {
       // For candidates, remove recruiter-specific fields and the resume (for privacy)
       delete profileData.companies;
-      delete profileData.resume;
     }
 
     return res.status(200).json({

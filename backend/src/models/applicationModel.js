@@ -13,7 +13,7 @@ const applicationSchema = new mongoose.Schema({
     },
     status:{
         type:String,
-        enum:['pending', 'accepted', 'rejected'],
+        enum:['pending', 'accepted', 'rejected', 'withdrawn'],
         default:'pending'
     },
     resume: {
@@ -37,4 +37,8 @@ const applicationSchema = new mongoose.Schema({
     },
 
 },{timestamps:true});
+
+// TTL index: documents with a non-null expiresAt will be deleted when expiresAt is reached.
+applicationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
 export const Application  = mongoose.model("Application", applicationSchema);
