@@ -31,17 +31,18 @@ export const recruiterProfileSetup = async (req, res) => {
     }
 
     // Handle profile picture upload if a file was provided
-    if (req.file) {
+    if (req.files && req.files.profilePicture && req.files.profilePicture.length > 0) {
+      const file = req.files.profilePicture[0];
       try {
         console.log("File received:", {
-          mimetype: req.file.mimetype,
-          size: req.file.size,
-          originalName: req.file.originalname
+          mimetype: file.mimetype,
+          size: file.size,
+          originalName: file.originalname
         });
-
+        
         // Convert buffer to base64
-        const b64 = Buffer.from(req.file.buffer).toString("base64");
-        const dataURI = "data:" + req.file.mimetype + ";base64," + b64;
+        const b64 = Buffer.from(file.buffer).toString("base64");
+        const dataURI = "data:" + file.mimetype + ";base64," + b64;
         
         console.log("Attempting to upload to Cloudinary...");
         
@@ -52,7 +53,7 @@ export const recruiterProfileSetup = async (req, res) => {
           allowed_formats: ['jpg', 'png', 'jpeg', 'gif', 'webp'],
           transformation: [{ width: 500, height: 500, crop: "fill" }]
         });
-
+        
         console.log("Cloudinary upload successful:", uploadResult.secure_url);
         // Save the Cloudinary URL to the user's profile
         user.profile.profilePicture = uploadResult.secure_url;
@@ -65,6 +66,7 @@ export const recruiterProfileSetup = async (req, res) => {
         });
       }
     }
+
 
     // Update profile fields
     user.profile.firstName = firstName;

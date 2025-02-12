@@ -5,165 +5,222 @@ import SignUp from './pages/SignUp';
 import Login from './pages/Login';
 import EmailVerification from './pages/EmailVerification';
 import { useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux'; // Redux hooks
-import { checkAuth, refreshToken } from './store/authSlice'; // Redux thunk
+import { useDispatch, useSelector } from 'react-redux';
+import { checkAuth, refreshToken } from './store/authSlice';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
-import AdminDashboard from './pages/AdminDashboard';
-import ClientDashboard from './pages/ClientDashboard';
+import RecruiterDashboard from './pages/RecruiterDashboard';
+import CandidateDashboard from './pages/CandidateDashboard';
 import OnBoarding from './pages/OnBoarding';
+import RecruiterProfileSetup from './pages/RecruiterProfileSetup';
+import CandidateProfileSetup from './pages/CandidateProfileSetup';
+import CompanyRegister from './pages/CompanyRegister';
+import RecruiterCompanies from './pages/RecruiterCompanies';
 
-// PROTECT Routes that require authentication
+// Protect routes that require authentication
 const ProtectRoute = ({ children, allowedRoles }) => {
-    const { isLoading, isAuthenticated, user } = useSelector((state) => state.auth);
+  const { isLoading, isAuthenticated, user } = useSelector((state) => state.auth);
 
-    if (isLoading) {
-        return <LoadingSpinner />;
-    }
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
 
-    if (!isAuthenticated) {
-        return <Navigate to="/login" replace />;
-    }
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
 
-    if (!user.isVerified) {
-        return <Navigate to="/verify-email" replace />;
-    }
+  if (!user.isVerified) {
+    return <Navigate to="/verify-email" replace />;
+  }
 
-    if (allowedRoles && !allowedRoles.includes(user.role)) {
-        return <Navigate to="/" replace />;
-    }
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/" replace />;
+  }
 
-    return children;
+  return children;
 };
 
-// Redirect Authenticated Users to Their Dashboards or Role Selection
+// Redirect authenticated users based on profile completeness and role
 const RedirectAuthenticatedUsers = ({ children }) => {
-    const { isAuthenticated, user } = useSelector((state) => state.auth);
+  const { isAuthenticated, user } = useSelector((state) => state.auth);
 
-    if (isAuthenticated) {
-        if (!user.role) {
-            return <Navigate to="/" replace />; // Redirect to role selection
-        }
-        if (user.isVerified) {
-            switch (user.role) {
-                case 'recruiter':
-                    return <Navigate to="/admin-dashboard" replace />;
-                case 'candidate':
-                    return <Navigate to="/client-dashboard" replace />;
-                default:
-                    return <Navigate to="/" replace />;
-            }
-        }
+  if (isAuthenticated) {
+    if (!user.role) {
+      return <Navigate to="/" replace />;
     }
 
-    return children;
+    const isProfileComplete =
+      user.profile && user.profile.firstName && user.profile.lastName;
+    
+    if (!isProfileComplete) {
+      if (user.role === 'candidate') {
+        return <Navigate to="/candidate-profile-update" replace />;
+      } else if (user.role === 'recruiter') {
+        return <Navigate to="/recruiter-profile-update" replace />;
+      }
+    } else {
+      // Recruiter needs to register a company first
+      if (user.role === 'recruiter' && (!user.profile.companies || user.profile.companies.length === 0)) {
+        return <Navigate to="/company-register" replace />;
+      }
+      
+      // Otherwise, redirect to the appropriate dashboard
+      if (user.role === 'candidate') {
+        return <Navigate to="/candidate-dashboard" replace />;
+      } else if (user.role === 'recruiter') {
+        return <Navigate to="/recruiter-companies" replace />;
+      }
+    }
+  }
+
+  return children;
+};
+
+// New wrapper to block access to verify-email if the user is already verified
+const RedirectFromVerifyEmail = ({ children }) => {
+  const { isAuthenticated, user } = useSelector((state) => state.auth);
+
+  if (isAuthenticated && user.isVerified) {
+    if (user.role === 'recruiter') {
+      return <Navigate to="/recruiter-dashboard" replace />;
+    }
+    if (user.role === 'candidate') {
+      return <Navigate to="/candidate-dashboard" replace />;
+    }
+  }
+  return children;
 };
 
 function App() {
-    const dispatch = useDispatch();
-    const { isCheckingAuth } = useSelector((state) => state.auth);
+  const dispatch = useDispatch();
+  const { isCheckingAuth } = useSelector((state) => state.auth);
 
-    useEffect(() => {
+  useEffect(() => {
     const checkAuthAndRefresh = async () => {
+      try {
+        await dispatch(checkAuth()).unwrap();
+      } catch (error) {
         try {
-            await dispatch(checkAuth()).unwrap();
-        } catch (error) {
-            // Attempt token refresh if checkAuth fails
-            try {
-                await dispatch(refreshToken()).unwrap();
-                await dispatch(checkAuth()).unwrap();
-            } catch (refreshError) {
-                console.log("Authentication required", refreshError);
-            }
-            console.log(error.message);
+          await dispatch(refreshToken()).unwrap();
+          await dispatch(checkAuth()).unwrap();
+        } catch (refreshError) {
+          console.log("Authentication required", refreshError);
         }
+        console.log(error.message);
+      }
     };
-    
     checkAuthAndRefresh();
-}, [dispatch]);
+  }, [dispatch]);
 
-    if (isCheckingAuth) return <LoadingSpinner />;
+  if (isCheckingAuth) return <LoadingSpinner />;
 
-    return (
-        <BrowserRouter>
-            <AppLayout>
-                <Routes>
-                    <Route path="/" 
-                        element={
-                            <RedirectAuthenticatedUsers>
-                                <OnBoarding />
-                            </RedirectAuthenticatedUsers>
-                        } 
-                    />
+  return (
+    <BrowserRouter>
+      <AppLayout>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <RedirectAuthenticatedUsers>
+                <OnBoarding />
+              </RedirectAuthenticatedUsers>
+            }
+          />
+          <Route
+            path="/signup"
+            element={
+              <RedirectAuthenticatedUsers>
+                <SignUp />
+              </RedirectAuthenticatedUsers>
+            }
+          />
+          <Route
+            path="/login"
+            element={
+              <RedirectAuthenticatedUsers>
+                <Login />
+              </RedirectAuthenticatedUsers>
+            }
+          />
+          <Route
+            path="/verify-email"
+            element={
+              <RedirectFromVerifyEmail>
+                <EmailVerification />
+              </RedirectFromVerifyEmail>
+            }
+          />
+          <Route
+            path="/forgot-password"
+            element={
+              <RedirectAuthenticatedUsers>
+                <ForgotPassword />
+              </RedirectAuthenticatedUsers>
+            }
+          />
+          <Route
+            path="/reset-password/:token"
+            element={
+              <RedirectAuthenticatedUsers>
+                <ResetPassword />
+              </RedirectAuthenticatedUsers>
+            }
+          />
+          <Route
+            path="/recruiter-dashboard"
+            element={
+              <ProtectRoute allowedRoles={['recruiter']}>
+                <RecruiterDashboard />
+              </ProtectRoute>
+            }
+          />
+          <Route
+            path="/candidate-dashboard"
+            element={
+              <ProtectRoute allowedRoles={['candidate']}>
+                <CandidateDashboard />
+              </ProtectRoute>
+            }
+          />
+          <Route
+            path="/recruiter-profile-update"
+            element={
+              <ProtectRoute allowedRoles={['recruiter']}>
+                <RecruiterProfileSetup />
+              </ProtectRoute>
+            }
+          />
+          <Route
+            path="/candidate-profile-update"
+            element={
+              <ProtectRoute allowedRoles={['candidate']}>
+                <CandidateProfileSetup />
+              </ProtectRoute>
+            }
+          />
+          <Route
+            path="/company-register"
+            element={
+              <ProtectRoute allowedRoles={['recruiter']}>
+                <CompanyRegister />
+              </ProtectRoute>
+            }
+          />
 
-                    <Route
-                        path="/signup"
-                        element={
-                            <RedirectAuthenticatedUsers>
-                                <SignUp />
-                            </RedirectAuthenticatedUsers>
-                        }
-                    />
+            <Route
+                path="/recruiter-companies"
+                element={
+                    <ProtectRoute allowedRoles={['recruiter']}>
+                    <RecruiterCompanies />
+                    </ProtectRoute>
+                }
+            />
 
-                    <Route
-                        path="/login"
-                        element={
-                            <RedirectAuthenticatedUsers>
-                                <Login />
-                            </RedirectAuthenticatedUsers>
-                        }
-                    />
-
-                    <Route
-                        path="/verify-email"
-                        element={
-                            <RedirectAuthenticatedUsers>
-                                <EmailVerification />
-                            </RedirectAuthenticatedUsers>
-                        }
-                    />
-
-                    <Route
-                        path="/forgot-password"
-                        element={
-                            <RedirectAuthenticatedUsers>
-                                <ForgotPassword />
-                            </RedirectAuthenticatedUsers>
-                        }
-                    />
-
-                    <Route
-                        path="/reset-password/:token"
-                        element={
-                            <RedirectAuthenticatedUsers>
-                                <ResetPassword />
-                            </RedirectAuthenticatedUsers>
-                        }
-                    />
-
-                    <Route
-                        path="/admin-dashboard"
-                        element={
-                            <ProtectRoute allowedRoles={['recruiter']}>
-                                <AdminDashboard />
-                            </ProtectRoute>
-                        }
-                    />
-
-                    <Route
-                        path="/client-dashboard"
-                        element={
-                            <ProtectRoute allowedRoles={['candidate']}>
-                                <ClientDashboard />
-                            </ProtectRoute>
-                        }
-                    />
-
-                    <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-            </AppLayout>
-        </BrowserRouter>
-    );
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AppLayout>
+    </BrowserRouter>
+  );
 }
 
 export default App;

@@ -89,10 +89,10 @@ const EmailVerification = () => {
                 const user = resultAction.payload.user; // Assuming the user data is in the payload
                 switch (user.role) {
                     case "recruiter":
-                        navigate("/recruiter-dashboard");
+                        navigate("/recruiter-profile-update");
                         break;
                     case "candidate":
-                        navigate("/candidate-dashboard");
+                        navigate("/candidate-profile-update");
                         break;
                     default:
                         navigate("/");

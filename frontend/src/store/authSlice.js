@@ -1,9 +1,8 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axiosInstance from '../utils/axiosInstance';
 
-// Utility function to extract error messages from API responses
-const getErrorMessage = (error) =>
-  error.response?.data?.message || error.message || 'An error occurred';
+// Utility to handle errors from the backend
+const getErrorMessage = (error) => error.response?.data?.message || error.message;
 
 // Async Thunks
 
@@ -11,8 +10,9 @@ export const signUp = createAsyncThunk(
   'auth/signUp',
   async ({ email, password, username, role }, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.post('/signup', { email, password, username, role });
-      return response.data; // { success, message, user }
+      // Using a relative URL since axiosInstance has baseURL configured
+      const response = await axiosInstance.post('/auth/signup', { email, password, username, role });
+      return response.data; // Return user data from backend
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
     }
@@ -21,70 +21,10 @@ export const signUp = createAsyncThunk(
 
 export const verifyEmail = createAsyncThunk(
   'auth/verifyEmail',
-  async ({ email, code }, { rejectWithValue }) => {
+  async ({ code }, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.post('/verify-email', { email, code });
-      return response.data; // { success, message, user }
-    } catch (error) {
-      return rejectWithValue(getErrorMessage(error));
-    }
-  }
-);
-
-export const login = createAsyncThunk(
-  'auth/login',
-  async ({ email, password }, { rejectWithValue }) => {
-    try {
-      const response = await axiosInstance.post('/login', { email, password });
-      return response.data; // { success, message, user }
-    } catch (error) {
-      return rejectWithValue(getErrorMessage(error));
-    }
-  }
-);
-
-export const logout = createAsyncThunk(
-  'auth/logout',
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await axiosInstance.post('/logout');
-      return response.data; // { success, message }
-    } catch (error) {
-      return rejectWithValue(getErrorMessage(error));
-    }
-  }
-);
-
-export const forgotPassword = createAsyncThunk(
-  'auth/forgotPassword',
-  async ({ email }, { rejectWithValue }) => {
-    try {
-      const response = await axiosInstance.post('/forgot-password', { email });
-      return response.data; // { success, message }
-    } catch (error) {
-      return rejectWithValue(getErrorMessage(error));
-    }
-  }
-);
-
-export const resetPassword = createAsyncThunk(
-  'auth/resetPassword',
-  async ({ token, password }, { rejectWithValue }) => {
-    try {
-      const response = await axiosInstance.post(`/reset-password/${token}`, { password });
-      return response.data; // { success, message }
-    } catch (error) {
-      return rejectWithValue(getErrorMessage(error));
-    }
-  }
-);
-
-export const checkAuth = createAsyncThunk(
-  'auth/checkAuth',
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await axiosInstance.get('/check-auth');
-      return response.data; // { success, user }
+      const response = await axiosInstance.post('/auth/verify-email', { code });
+      return response.data;
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
     }
@@ -95,166 +35,203 @@ export const refreshToken = createAsyncThunk(
   'auth/refreshToken',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.post('/refresh-token');
-      return response.data; // { success, message }
+      // Relative URL works fine here as well
+      const response = await axiosInstance.post('/auth/refresh-token');
+      return response.data;
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
     }
   }
 );
 
-// Initial state for the auth slice
-const initialState = {
-  user: null,              // Stores user data if authenticated
-  isAuthenticated: false,  // True if the user is logged in
-  isLoading: false,        // True while an API request is pending
-  isCheckingAuth: false,   // (Optional) True when verifying auth status on app load
-  error: null,             // Error message from failed requests
-  message: null,           // General messages (e.g., after logout, password reset, etc.)
-};
+export const checkAuth = createAsyncThunk(
+  'auth/checkAuth',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.get('/auth/check-auth');
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(getErrorMessage(error));
+    }
+  }
+);
 
-// Create the auth slice
+export const login = createAsyncThunk(
+  'auth/login',
+  async ({ email, password }, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.post('/auth/login', { email, password });
+      return response.data; // Return user data from backend
+    } catch (error) {
+      return rejectWithValue(getErrorMessage(error));
+    }
+  }
+);
+
+export const logout = createAsyncThunk(
+  'auth/logout',
+  async (_, { rejectWithValue }) => {
+    try {
+      await axiosInstance.post('/auth/logout');
+      return { success: true, message: 'Logged out successfully.' };
+    } catch (error) {
+      return rejectWithValue(getErrorMessage(error));
+    }
+  }
+);
+
+export const forgotPassword = createAsyncThunk(
+  'auth/forgotPassword',
+  async ({ email }, { rejectWithValue }) => {
+    try {
+      await axiosInstance.post('/auth/forgot-password', { email });
+      return { success: true, message: 'Reset password link has been sent to your email.' };
+    } catch (error) {
+      return rejectWithValue(getErrorMessage(error));
+    }
+  }
+);
+
+export const resetPassword = createAsyncThunk(
+  'auth/resetPassword',
+  async ({ token, password }, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.post(`/auth/reset-password/${token}`, { password });
+      return response.data.message;
+    } catch (error) {
+      return rejectWithValue(getErrorMessage(error));
+    }
+  }
+);
+
+// Auth Slice
+
 const authSlice = createSlice({
   name: 'auth',
-  initialState,
+  initialState: {
+    user: null,
+    role: null,
+    isAuthenticated: false,
+    error: null,
+    isLoading: false,
+    isCheckingAuth: false,
+    message: null,
+  },
   reducers: {
-    // Synchronous reducers to clear error or message when needed
     clearError: (state) => {
-      state.error = null;
-    },
-    clearMessage: (state) => {
-      state.message = null;
+      state.error = null; // Reset the error state
     },
     clearLoading: (state) => {
-        state.isLoading = false;
-    }
+      state.isLoading = false; // Reset loading state
+    },
   },
   extraReducers: (builder) => {
-    // Sign Up
-    builder.addCase(signUp.pending, (state) => {
-      state.isLoading = true;
-      state.error = null;
-    });
-    builder.addCase(signUp.fulfilled, (state, { payload }) => {
-      state.isLoading = false;
-      state.user = payload.user;
-      state.isAuthenticated = true;
-      state.message = payload.message;
-    });
-    builder.addCase(signUp.rejected, (state, { payload }) => {
-      state.isLoading = false;
-      state.error = payload;
-    });
-
-    // Verify Email
-    builder.addCase(verifyEmail.pending, (state) => {
-      state.isLoading = true;
-      state.error = null;
-    });
-    builder.addCase(verifyEmail.fulfilled, (state, { payload }) => {
-      state.isLoading = false;
-      state.user = payload.user;
-      state.isAuthenticated = true;
-      state.message = payload.message;
-    });
-    builder.addCase(verifyEmail.rejected, (state, { payload }) => {
-      state.isLoading = false;
-      state.error = payload;
-    });
-
-    // Login
-    builder.addCase(login.pending, (state) => {
-      state.isLoading = true;
-      state.error = null;
-    });
-    builder.addCase(login.fulfilled, (state, { payload }) => {
-      state.isLoading = false;
-      state.user = payload.user;
-      state.isAuthenticated = true;
-      state.message = payload.message;
-    });
-    builder.addCase(login.rejected, (state, { payload }) => {
-      state.isLoading = false;
-      state.error = payload;
-    });
-
-    // Logout
-    builder.addCase(logout.pending, (state) => {
-      state.isLoading = true;
-      state.error = null;
-    });
-    builder.addCase(logout.fulfilled, (state, { payload }) => {
-      state.isLoading = false;
-      state.user = null;
-      state.isAuthenticated = false;
-      state.message = payload.message;
-    });
-    builder.addCase(logout.rejected, (state, { payload }) => {
-      state.isLoading = false;
-      state.error = payload;
-    });
-
-    // Forgot Password
-    builder.addCase(forgotPassword.pending, (state) => {
-      state.isLoading = true;
-      state.error = null;
-    });
-    builder.addCase(forgotPassword.fulfilled, (state, { payload }) => {
-      state.isLoading = false;
-      state.message = payload.message;
-    });
-    builder.addCase(forgotPassword.rejected, (state, { payload }) => {
-      state.isLoading = false;
-      state.error = payload;
-    });
-
-    // Reset Password
-    builder.addCase(resetPassword.pending, (state) => {
-      state.isLoading = true;
-      state.error = null;
-    });
-    builder.addCase(resetPassword.fulfilled, (state, { payload }) => {
-      state.isLoading = false;
-      state.message = payload.message || payload;
-    });
-    builder.addCase(resetPassword.rejected, (state, { payload }) => {
-      state.isLoading = false;
-      state.error = payload;
-    });
-
-    // Check Auth
-    builder.addCase(checkAuth.pending, (state) => {
-      state.isLoading = true;
-      state.error = null;
-      state.isCheckingAuth = true;
-    });
-    builder.addCase(checkAuth.fulfilled, (state, { payload }) => {
-      state.isLoading = false;
-      state.user = payload.user;
-      state.isAuthenticated = true;
-      state.isCheckingAuth = false;
-    });
-    builder.addCase(checkAuth.rejected, (state, { payload }) => {
-      state.isLoading = false;
-      state.isCheckingAuth = false;
-      state.error = payload;
-    });
-
-    // Refresh Token
-    builder.addCase(refreshToken.pending, (state) => {
-      state.isLoading = true;
-      state.error = null;
-    });
-    builder.addCase(refreshToken.fulfilled, (state, { payload }) => {
-      state.isLoading = false;
-      state.message = payload.message;
-    });
-    builder.addCase(refreshToken.rejected, (state, { payload }) => {
-      state.isLoading = false;
-      state.error = payload;
-    });
+    // SIGN UP
+    builder
+      .addCase(signUp.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(signUp.fulfilled, (state, { payload }) => {
+        state.isLoading = false;
+        state.user = payload.user;
+        state.role = payload.user.role; // Store role
+        state.isAuthenticated = true;
+      })
+      .addCase(signUp.rejected, (state, { payload }) => {
+        state.isLoading = false;
+        state.error = payload;
+      })
+      // VERIFY EMAIL
+      .addCase(verifyEmail.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(verifyEmail.fulfilled, (state, { payload }) => {
+        state.isLoading = false;
+        state.user = payload.user;
+        state.isAuthenticated = true;
+      })
+      .addCase(verifyEmail.rejected, (state, { payload }) => {
+        state.isLoading = false;
+        state.error = payload;
+      })
+      // CHECK AUTH
+      .addCase(checkAuth.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+        state.isCheckingAuth = true;
+      })
+      .addCase(checkAuth.fulfilled, (state, { payload }) => {
+        state.isLoading = false;
+        state.user = payload.user;
+        state.role = payload.user.role;
+        state.isAuthenticated = true;
+        state.isCheckingAuth = false;
+      })
+      .addCase(checkAuth.rejected, (state) => {
+        state.isLoading = false;
+        state.isCheckingAuth = false;
+      })
+      // LOGIN
+      .addCase(login.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(login.fulfilled, (state, { payload }) => {
+        state.isLoading = false;
+        state.user = payload.user;
+        state.role = payload.user.role;
+        state.isAuthenticated = true;
+      })
+      .addCase(login.rejected, (state, { payload }) => {
+        state.isLoading = false;
+        state.error = payload;
+      })
+      // LOGOUT
+      .addCase(logout.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(logout.fulfilled, (state, { payload }) => {
+        state.isLoading = false;
+        state.user = null;
+        state.role = null;
+        state.isAuthenticated = false;
+        state.message = payload.message;
+      })
+      .addCase(logout.rejected, (state, { payload }) => {
+        state.isLoading = false;
+        state.error = payload;
+      })
+      // FORGOT PASSWORD
+      .addCase(forgotPassword.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(forgotPassword.fulfilled, (state, { payload }) => {
+        state.isLoading = false;
+        state.message = payload.message;
+      })
+      .addCase(forgotPassword.rejected, (state, { payload }) => {
+        state.isLoading = false;
+        state.error = payload;
+      })
+      // RESET PASSWORD
+      .addCase(resetPassword.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(resetPassword.fulfilled, (state, { payload }) => {
+        state.isLoading = false;
+        state.message = payload;
+      })
+      .addCase(resetPassword.rejected, (state, { payload }) => {
+        state.isLoading = false;
+        state.error = payload;
+      });
   },
 });
 
-export const { clearError, clearMessage, clearLoading } = authSlice.actions;
+export const { clearError, clearLoading } = authSlice.actions;
 export default authSlice.reducer;

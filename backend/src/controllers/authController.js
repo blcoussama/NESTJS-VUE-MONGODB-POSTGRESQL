@@ -60,7 +60,6 @@ export const SignUp = async (req, res) => {
             user: {
                 ...user._doc,
                 password: undefined,
-                profile: undefined
             }
         });
 
@@ -114,7 +113,6 @@ export const VerifyEmail = async(req, res) => {
             user: {
                 ...user._doc,
                 password: undefined,
-                profile: undefined
             }
         });
 
@@ -160,7 +158,6 @@ export const Login = async (req, res) => {
             user: {
                 ...user._doc,
                 password: undefined,
-                profile: undefined
             },
         });
     } catch (error) {
@@ -285,7 +282,6 @@ export const CheckAuth = async (req, res) => {
             user: {
                 ...user._doc,
                 password: undefined,
-                profile: undefined,
             },
         });
     } catch (error) {
