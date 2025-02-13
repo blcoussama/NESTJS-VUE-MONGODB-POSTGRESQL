@@ -15,7 +15,8 @@ const companySchema = new mongoose.Schema({
         unique: true
     },
     location:{
-        type: String 
+        type: String,
+        required: true
     },
     userId:{
         type: mongoose.Schema.Types.ObjectId,

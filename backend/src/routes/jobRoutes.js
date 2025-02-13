@@ -5,8 +5,8 @@ import { authorizedRoles } from '../middlewares/verifyRole.js';
 
 const router = express.Router();
 
-router.post('/post', VerifyToken, authorizedRoles("recruiter"), postJob);
-router.put('/update/:id', VerifyToken, authorizedRoles("recruiter"), updateJob);
+router.post('/post/:id', VerifyToken, authorizedRoles("recruiter"), postJob);
+router.put('/update/:id/from/:companyId', VerifyToken, authorizedRoles("recruiter"), updateJob);
 router.delete('/delete/:id', VerifyToken, authorizedRoles("recruiter"), deleteJob);
 router.get('/posted-jobs/:recruiterId', VerifyToken, getJobsByRecruiter);
 router.get('/all', VerifyToken, getAllJobs)

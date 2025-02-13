@@ -1,7 +1,8 @@
+/* eslint-disable react/prop-types */
 
 const AppLayout = ({ children }) => {
   return (
-    <main className='fixed inset-0 flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-black'>
+    <main className='flex items-center justify-center bg-gradient-to-br from-gray-900 to-black'>
         {children}
     </main>
   )

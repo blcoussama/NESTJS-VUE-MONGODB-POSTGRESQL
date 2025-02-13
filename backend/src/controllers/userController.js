@@ -50,7 +50,7 @@ export const recruiterProfileSetup = async (req, res) => {
         const uploadResult = await cloudinary.uploader.upload(dataURI, {
           folder: "profile_pictures",
           resource_type: 'auto',
-          allowed_formats: ['jpg', 'png', 'jpeg', 'gif', 'webp'],
+          allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
           transformation: [{ width: 500, height: 500, crop: "fill" }]
         });
         
@@ -140,11 +140,11 @@ export const candidateProfileSetup = async (req, res) => {
         const b64 = Buffer.from(profilePicFile.buffer).toString("base64");
         const dataURI = "data:" + profilePicFile.mimetype + ";base64," + b64;
 
-        console.log("Attempting to upload profile picture to Cloudinary...");
+        console.log("Attempting to upload profile pi.cture to Cloudinary...");
         const uploadResult = await cloudinary.uploader.upload(dataURI, {
           folder: "profile_pictures",
           resource_type: 'auto',
-          allowed_formats: ['jpg', 'png', 'jpeg', 'gif', 'webp'],
+          allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
           transformation: [{ width: 500, height: 500, crop: "fill" }]
         });
 

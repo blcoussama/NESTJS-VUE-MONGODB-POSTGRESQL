@@ -13,23 +13,25 @@ const upload = multer({
     });
     
     if (file.fieldname === 'profilePicture') {
-      // Only allow image files for profile picture
       if (file.mimetype.startsWith('image/')) {
         cb(null, true);
       } else {
         cb(new Error('Not an image! Please upload only images for the profile picture.'), false);
       }
     } else if (file.fieldname === 'resume') {
-      // Allow PDF, DOC, DOCX for resume uploads
-      const allowedMimeTypes = [
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-      ];
+      // Only allow PDF files for resume uploads
+      const allowedMimeTypes = ['application/pdf'];
       if (allowedMimeTypes.includes(file.mimetype)) {
         cb(null, true);
       } else {
-        cb(new Error('Invalid file type for resume. Only PDF, DOC, or DOCX files are allowed.'), false);
+        cb(new Error('Invalid file type for resume. Only PDF files are allowed.'), false);
+      }
+    } else if (file.fieldname === 'logo') {
+      // Allow logo uploads only as images
+      if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Not an image! Please upload only images for the company logo.'), false);
       }
     } else {
       cb(new Error('Unexpected field: ' + file.fieldname), false);
@@ -37,12 +39,12 @@ const upload = multer({
   }
 });
 
-// Export a middleware function to handle multiple fields
+// Export middleware that handles multiple fields: profilePicture, resume, and logo
 const uploadMultiple = (req, res, next) => {
-  // Expect fields: profilePicture and resume (each maximum 1 file)
   const multiUpload = upload.fields([
     { name: 'profilePicture', maxCount: 1 },
-    { name: 'resume', maxCount: 1 }
+    { name: 'resume', maxCount: 1 },
+    { name: 'logo', maxCount: 1 }
   ]);
   
   multiUpload(req, res, function(err) {

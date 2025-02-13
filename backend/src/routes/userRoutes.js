@@ -8,7 +8,7 @@ import uploadMultiple from '../middlewares/multer.js';
 const router = express.Router();
 
 // SET Recruiter PROFILE
-router.put('/recruiter-profile-update', VerifyToken, authorizedRoles("recruiter"), uploadMultiple, recruiterProfileSetup);
+router.put('/recruiter-profile-update', VerifyToken, authorizedRoles("recruiter"), uploadMultiple, recruiterProfileSetup);  
 
 // SET Candidate PROFILE
 router.put('/candidate-profile-update', VerifyToken, authorizedRoles("candidate"), uploadMultiple, candidateProfileSetup);

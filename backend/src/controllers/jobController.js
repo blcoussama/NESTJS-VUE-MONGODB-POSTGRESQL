@@ -25,6 +25,7 @@ export const postJob = async (req, res) => {
       return res.status(401).json({ success: false, message: "Unauthorized. User not found." });
     }
 
+    const { id } = req.params;
     const {
       title,
       description,
@@ -33,9 +34,22 @@ export const postJob = async (req, res) => {
       experienceYears,
       experienceLevel,
       location,
-      isOpen,
-      company
     } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid company ID format."
+      });
+    }
+
+    const company = await Company.findById(id);
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: "Company not found."
+      });
+    }
 
     // Validate required fields
     if (
@@ -44,8 +58,7 @@ export const postJob = async (req, res) => {
       salary === undefined ||
       experienceYears === undefined ||
       !experienceLevel ||
-      !location ||
-      !company
+      !location
     ) {
       return res.status(400).json({ success: false, message: "Missing one or more required fields." });
     }
@@ -115,7 +128,7 @@ export const postJob = async (req, res) => {
       experienceYears,
       experienceLevel,
       location,
-      isOpen,
+      isOpen: true,
       company,
       created_by: recruiterId
     });
@@ -141,7 +154,22 @@ export const updateJob = async (req, res) => {
       return res.status(401).json({ success: false, message: "Unauthorized. User not found." });
     }
 
-    const { id } = req.params; // Make sure the route parameter is named 'id'
+    const { id, companyId } = req.params; // Make sure the route parameter is named 'id'
+
+    if (!mongoose.Types.ObjectId.isValid(companyId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid company ID format."
+      });
+    }
+
+    const company = await Company.findById(companyId);
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: "Company not found."
+      });
+    }
 
     // Find the job
     const job = await Job.findById(id);
