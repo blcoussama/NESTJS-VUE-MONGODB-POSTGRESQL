@@ -82,7 +82,7 @@ const EmailVerification = () => {
 
         try {
             // Dispatch verifyEmail action
-            const resultAction = await dispatch(verifyEmail({ code: verificationCode }));
+            const resultAction = await dispatch(verifyEmail({ code: verificationCode })).unwrap();
 
             // Handle successful email verification
             if (verifyEmail.fulfilled.match(resultAction)) {

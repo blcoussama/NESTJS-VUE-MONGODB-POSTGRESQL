@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import AppLayout from './layout/AppLayout';
 import LoadingSpinner from './components/LoadingSpinner';
 import SignUp from './pages/SignUp';
 import Login from './pages/Login';
@@ -19,6 +18,15 @@ import RecruiterCompanies from './pages/RecruiterCompanies';
 import CompanyUpdate from './pages/CompanyUpdate';
 import PostJob from './pages/PostJob';
 import UpdateJob from './pages/JobUpdate';
+import JobListing from './pages/JobListing';
+import JobDetails from './pages/JobDetails';
+import ApplyJob from './pages/ApplyJob';
+import CompanyDetails from './pages/CompanyDetails';
+import RecruiterJobs from './pages/RecruiterJobs';
+import UserProfile from './pages/UserProfile';
+import CandidateApplications from './pages/CandidateApplications';
+import SelectCompanyForJob from './pages/SelectCompanyForJob';
+import SavedJobs from './pages/SavedJobs';
 
 // Protect routes that require authentication
 // const ProtectRoute = ({ children, allowedRoles }) => {
@@ -119,7 +127,6 @@ function App() {
 
   return (
     <BrowserRouter>
-      <AppLayout>
         <Routes>
           <Route
             path="/"
@@ -201,6 +208,11 @@ function App() {
             //   </ProtectRoute>
             }
           />
+
+          <Route path="/profile/:id" element={
+              <UserProfile />
+          } />
+
           <Route
             path="/company-register"
             element={
@@ -210,7 +222,7 @@ function App() {
             }
           />
           <Route
-            path="/company-update/:id"
+            path="/update-company/:id"
             element={
             //   <ProtectRoute allowedRoles={['recruiter']}>
                 <CompanyUpdate />
@@ -219,13 +231,17 @@ function App() {
           />
 
           <Route
-            path="/recruiter-companies"
+            path="/recruiter-companies/:recruiterId"
             element={
-                // <ProtectRoute allowedRoles={['recruiter']}>
-                <RecruiterCompanies />
-                // </ProtectRoute>
+            <RecruiterCompanies />
             }
           />
+
+          <Route 
+            path="/select-company-for-job/:recruiterId" 
+            element={<SelectCompanyForJob />} 
+          />
+
           <Route
             path="/post-job/:companyId"
             element={
@@ -242,10 +258,69 @@ function App() {
                 // </ProtectRoute>
             }
           />
+          <Route
+            path="/jobs"
+            element={
+                // <ProtectRoute allowedRoles={['recruiter']}>
+                <JobListing />
+                // </ProtectRoute>
+            }
+          />
+
+          <Route 
+            path="/saved-jobs" 
+            element={
+              <SavedJobs />
+            } 
+          />
+
+          <Route
+            path="/recruiter-jobs/:recruiterId"
+            element={
+                // <ProtectRoute allowedRoles={['recruiter']}>
+                <RecruiterJobs />
+                // </ProtectRoute>
+            }
+          />
+
+          <Route
+            path="/company/:id"
+            element={
+                // <ProtectRoute allowedRoles={['recruiter']}>
+                <CompanyDetails />
+                // </ProtectRoute>
+            }
+          />
+
+          <Route
+            path="/jobs/:id"
+            element={
+                // <ProtectRoute allowedRoles={['recruiter']}>
+                <JobDetails />
+                // </ProtectRoute>
+            }
+          />
+
+          <Route
+            path="/apply/:jobId"
+            element={
+                // <ProtectRoute allowedRoles={['recruiter']}>
+                <ApplyJob />
+                // </ProtectRoute>
+            }
+          />
+
+          <Route
+            path="/candidate/applications"
+            element={
+                // <ProtectRoute allowedRoles={['recruiter']}>
+                <CandidateApplications />
+                // </ProtectRoute>
+            }
+          />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </AppLayout>
     </BrowserRouter>
   );
 }

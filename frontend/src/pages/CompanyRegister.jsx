@@ -114,10 +114,8 @@ const RegisterCompany = () => {
 
     try {
       const formDataToSend = new FormData();
-      Object.keys(formData).forEach(key => {
-        if (formData[key].trim()) {
-          formDataToSend.append(key, formData[key].trim());
-        }
+      Object.entries(formData).forEach(([key, value]) => {
+        formDataToSend.append(key, value.trim()); 
       });
       
       if (logoFile) {

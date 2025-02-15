@@ -29,6 +29,14 @@ export const applyForJob = async (req, res) => {
         .json({ success: false, message: "Job not found." });
     }
 
+     // Add this check for job status
+    if (!job.isOpen) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "This job is no longer accepting applications." 
+      });
+    }
+
     // Optionally check if the candidate has already applied
     const existingApplication = await Application.findOne({
       job: jobId,
@@ -190,9 +198,22 @@ export const acceptApplication = async (req, res) => {
       { status: "rejected" }
     );
 
+    // NEW: Close the job posting after accepting an application
+    const updatedJob = await Job.findByIdAndUpdate(
+      application.job._id,
+      { isOpen: false },
+      { new: true }
+    );
+
+    // Optional error logging if job update fails
+    if (!updatedJob) {
+      console.error("Failed to close job after accepting application");
+      // We don't return an error here since the main operation succeeded
+    }
+
     return res.status(200).json({
       success: true,
-      message: "Application accepted. All other pending applications have been rejected.",
+      message: "Application accepted. Job listing closed. All other pending applications have been rejected.",
       application,
     });
   } catch (error) {

@@ -35,16 +35,14 @@ const Signup = () => {
             navigate('/');
         }
 
-      }, [dispatch, location.state, navigate]);
+    }, [dispatch, location.state.role, navigate]);
 
     const handleSignUp = async(e) => {
         e.preventDefault()
 
         try {
             // Dispatch SignUp Action from redux AuthSlice
-            await dispatch(
-                signUp({ email, password, username, role})
-            ).unwrap();
+            await dispatch(signUp({ email, password, username, role})).unwrap();
 
             // Handle successfull Sign-Up
             navigate("/verify-email");

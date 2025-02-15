@@ -50,10 +50,10 @@ export const deleteJob = createAsyncThunk(
 // Get jobs posted by a recruiter (GET /jobs/posted-jobs/:recruiterId)
 export const getJobsByRecruiter = createAsyncThunk(
   'jobs/getJobsByRecruiter',
-  async (recruiterId, thunkAPI) => {
+  async (recruiterId, thunkAPI) => { // Now takes recruiterId as parameter
     try {
       const response = await axiosInstance.get(`/job/posted-jobs/${recruiterId}`);
-      return response.data; // Expected: { success, jobs }
+      return response.data;
     } catch (error) {
       return thunkAPI.rejectWithValue(
         error.response?.data?.message || error.message

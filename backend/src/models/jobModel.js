@@ -51,4 +51,18 @@ const jobSchema = new mongoose.Schema({
     ]
 },{timestamps:true});
 
+jobSchema.pre("deleteOne", { document: true }, async function(next) {
+  try {
+    // Delete all applications for this job
+    await this.model('Application').deleteMany({ job: this._id });
+
+    // Delete all saved job entries for this job
+    await this.model('savedJob').deleteMany({ job: this._id });
+    
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
 export const Job = mongoose.model("Job", jobSchema);

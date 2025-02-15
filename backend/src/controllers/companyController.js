@@ -120,7 +120,7 @@ export const registerCompany = async (req, res) => {
         const company = new Company({
           name: name.trim(),
           description: description?.trim(),
-          website: website?.trim().toLowerCase(),
+            website: website?.trim() ? website.trim().toLowerCase() : undefined, // Fixed line
           location: location.trim(),
           userId: recruiterId,
           logo: logoUrl
@@ -144,10 +144,12 @@ export const registerCompany = async (req, res) => {
         company: savedCompany,
       });
     } catch (transactionError) {
-      await session.abortTransaction();
-      await session.endSession();
-      throw transactionError;
-    }
+        if (session.inTransaction()) {
+          await session.abortTransaction();
+        }
+        await session.endSession();
+        throw transactionError;
+      }
   } catch (error) {
     console.error("Error registering company:", error);
     return res.status(500).json({
@@ -300,7 +302,7 @@ export const updateCompany = async (req, res) => {
     // Update fields if provided
     if (name) company.name = name.trim();
     if (description !== undefined) company.description = description?.trim();
-    if (website) company.website = website.trim().toLowerCase();
+    if (website) company.website = website?.trim() ? website.trim().toLowerCase() : undefined;
     if (location) company.location = location.trim();
 
     await company.save();
@@ -389,14 +391,24 @@ export const deleteCompany = async (req, res) => {
 // Controller to get companies for the recruiter
 export const getRecruiterCompanies = async (req, res) => {
   try {
-    const recruiterId = req.user?.userId;
+    const recruiterId = req.params.recruiterId; // Now coming from URL params
+
     if (!recruiterId) {
-      return res.status(401).json({ 
-        success: false, 
-        message: "Unauthorized. User not found." 
+      return res.status(400).json({
+        success: false,
+        message: "Recruiter ID is required in the URL parameters.",
       });
     }
 
+    // Validate the recruiter ID format
+    if (!mongoose.Types.ObjectId.isValid(recruiterId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid recruiter ID format.",
+      });
+    }
+
+    // Find companies associated with the provided recruiter ID
     const companies = await Company.find({ userId: recruiterId })
       .select('-__v')
       .sort({ createdAt: -1 });
@@ -411,7 +423,7 @@ export const getRecruiterCompanies = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "An error occurred while retrieving companies.",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };

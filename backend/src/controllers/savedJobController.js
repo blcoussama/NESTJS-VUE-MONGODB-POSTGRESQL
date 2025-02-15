@@ -24,9 +24,13 @@ export const saveJob = async (req, res) => {
     }
 
     // Check if job is already saved
-    const existingSavedJob = await savedJob.findOne({ job: jobId, user: userId });
+    const existingSavedJob = await savedJob.findOne({ job: jobId, user: userId }).populate('job');
     if (existingSavedJob) {
-      return res.status(400).json({ success: false, message: "Job is already saved." });
+      return res.status(200).json({  // Changed from 400 to 200 since it's not really an error
+        success: true,
+        message: "Job is already saved.",
+        savedJob: existingSavedJob
+      });
     }
 
     // Save the job
@@ -35,11 +39,14 @@ export const saveJob = async (req, res) => {
       user: userId,
     });
     await newSavedJob.save();
+    
+    // Populate the job details before sending response
+    const populatedSavedJob = await savedJob.findById(newSavedJob._id).populate('job');
 
     return res.status(201).json({
       success: true,
       message: "Job saved successfully.",
-      savedJob: newSavedJob,
+      savedJob: populatedSavedJob,
     });
   } catch (error) {
     console.error("Error saving job:", error);
@@ -88,8 +95,11 @@ export const getSavedJobs = async (req, res) => {
       return res.status(401).json({ success: false, message: "Unauthorized." });
     }
 
-    // Retrieve saved jobs and populate job details
-    const savedJobs = await savedJob.find({ user: userId }).populate("job");
+    // Retrieve saved jobs and populate job details along with its nested company field
+    const savedJobs = await savedJob.find({ user: userId }).populate({
+      path: 'job',
+      populate: { path: 'company' }
+    });
 
     return res.status(200).json({
       success: true,

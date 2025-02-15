@@ -3,14 +3,38 @@ import { useDispatch, useSelector } from 'react-redux';
 import { postJob, clearError } from '../store/jobSlice';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
+import axiosInstance from '../utils/axiosInstance';
 
 const PostJob = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { companyId } = useParams(); // Grab the company id from the URL params
+
+  // New state to hold the company details
+  const [company, setCompany] = useState(null);
+  const [companyLoading, setCompanyLoading] = useState(true);
+
   const { loading, error, job } = useSelector((state) => state.job);
 
-  // Remove the "company" field from formData because companyId comes from URL
+  // Fetch the company details so we can display its name in the title
+  useEffect(() => {
+    const fetchCompany = async () => {
+      try {
+        const response = await axiosInstance.get(`/company/${companyId}`);
+        setCompany(response.data.company);
+      } catch (err) {
+        console.error("Error fetching company:", err);
+      } finally {
+        setCompanyLoading(false);
+      }
+    };
+
+    if (companyId) {
+      fetchCompany();
+    }
+  }, [companyId]);
+
+  // Job form state
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -114,7 +138,7 @@ const PostJob = () => {
     };
 
     try {
-      // Dispatch the postJob thunk with an object containing companyId (from URL) and jobData.
+      // Dispatch the postJob thunk with companyId from URL and the job data
       await dispatch(
         postJob({ companyId, jobData: formattedData })
       ).unwrap();
@@ -130,7 +154,13 @@ const PostJob = () => {
     <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
         <div className="p-6 md:p-8">
-          <h2 className="text-3xl font-bold text-gray-900">Post a New Job</h2>
+          <h2 className="text-3xl font-bold text-gray-900">
+            {companyLoading 
+              ? 'Loading company...' 
+              : company 
+                ? `Post a New Job for ${company.name}` 
+                : 'Post a New Job'}
+          </h2>
           <p className="mt-2 text-gray-600">
             Provide job details to attract candidates
           </p>

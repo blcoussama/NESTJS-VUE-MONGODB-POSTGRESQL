@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { Check, X } from "lucide-react";
 
 const PasswordCriteria = ({ password }) => {

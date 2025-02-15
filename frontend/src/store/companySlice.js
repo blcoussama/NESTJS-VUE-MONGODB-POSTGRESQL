@@ -47,13 +47,14 @@ export const deleteCompany = createAsyncThunk(
   }
 );
 
-// Async thunk to get recruiter companies
+// Async thunk to get recruiter companies using the recruiterId passed in the URL
 export const getRecruiterCompanies = createAsyncThunk(
   'company/getRecruiterCompanies',
-  async (_, { rejectWithValue }) => {
+  async (recruiterId, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.get('/company/companies');
-      return response.data; // Expected: { success, companies }
+      // Using the recruiterId parameter to build the URL
+      const response = await axiosInstance.get(`/company/companies/${recruiterId}`);
+      return response.data; // Expected: { success, count, companies }
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || error.message || 'Fetching companies failed'

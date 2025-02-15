@@ -330,7 +330,7 @@ export const getAllJobs = async (req, res) => {
     
     // Execute the query with pagination and sort the results (newest first)
     const jobs = await Job.find(filter)
-      .populate("company", "name location")  // Optionally populate company details
+      .populate("company", "name location logo")  // Optionally populate company details
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit));
@@ -364,7 +364,7 @@ export const viewJob = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid job ID format." });
     }
 
-    const job = await Job.findById(id).populate("company", "name location"); // Populate company details
+    const job = await Job.findById(id).populate("company", "name location logo"); // Populate company details
     if (!job) {
       return res.status(404).json({ success: false, message: "Job not found." });
     }
