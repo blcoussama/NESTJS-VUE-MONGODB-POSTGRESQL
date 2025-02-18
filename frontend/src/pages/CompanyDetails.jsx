@@ -96,9 +96,10 @@ const CompanyDetails = () => {
                 {currentCompany.name}
               </CardTitle>
               <div className="flex items-center gap-2 mt-5 mb-4">
-                <Clock className="h-6 w-6 text-gray-400" />
-                <p className="text-sm text-gray-400">
-                  Registered {moment(currentCompany.createdAt).fromNow()}
+                <Clock className="h-6 w-6" />
+                <p className="text-[15px] items-center">
+                  Registered on {new Date(currentCompany.createdAt).toLocaleDateString()}
+                  <span className='ml-2 text-gray-600 dark:text-gray-400'>({moment(currentCompany.createdAt).fromNow()})</span>
                 </p>
               </div>
               <div className="mt-6 flex flex-wrap gap-4">

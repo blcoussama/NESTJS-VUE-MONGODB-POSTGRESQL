@@ -107,9 +107,9 @@
     initialState,
     reducers: {
       clearApplication(state) {
-        state.application = null;
-        state.error = null;
-        state.message = null;
+      state.application = null;
+      state.error = null;
+      state.message = null;
       },
       clearJobApplications(state) {
         state.jobApplications = [];
@@ -118,6 +118,11 @@
       },
       clearCandidateApplications(state) {
         state.candidateApplications = [];
+        state.error = null;
+        state.message = null;
+      },
+      // NEW reducer: clear only the messages
+      clearApplicationMessages(state) {
         state.error = null;
         state.message = null;
       },
@@ -213,5 +218,5 @@
     },
   });
 
-  export const { clearApplication, clearJobApplications, clearCandidateApplications } = applicationSlice.actions;
-  export default applicationSlice.reducer;
+  export const { clearApplication, clearJobApplications, clearCandidateApplications, clearApplicationMessages } = applicationSlice.actions;
+export default applicationSlice.reducer;

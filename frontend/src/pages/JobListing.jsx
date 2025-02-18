@@ -8,7 +8,6 @@ import {
   MapPin,
   BriefcaseIcon,
   DollarSign,
-  CheckCircle2,
   BookmarkIcon,
 } from "lucide-react";
 
@@ -24,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { Badge } from "@/components/ui/badge";
 
 const JobListing = () => {
   const dispatch = useDispatch();
@@ -125,229 +125,237 @@ const JobListing = () => {
   };
 
   return (
-    <div className="min-h-screen p-8 pt-0">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="rounded-xl shadow-sm p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Search Input */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5" />
-              <Input
-                type="text"
-                name="search"
-                value={filters.search}
-                onChange={handleFilterChange}
-                placeholder="Search jobs..."
-                className="pl-10 w-full h-10"
-              />
-            </div>
-
-            {/* Location Input */}
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5" />
-              <Input
-                type="text"
-                name="location"
-                value={filters.location}
-                onChange={handleFilterChange}
-                placeholder="Location..."
-                className="pl-10 w-full h-10"
-              />
-            </div>
-
-            {/* Experience Level Select */}
-            <div className="relative">
-              <BriefcaseIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5" />
-              <Select
-                value={filters.experienceLevel || "all"}
-                onValueChange={(value) =>
-                  handleSelectChange("experienceLevel", value)
-                }
-              >
-                <SelectTrigger className="pl-10 w-full h-10">
-                  <SelectValue placeholder="Any Experience Level" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Any Experience Level</SelectItem>
-                  <SelectItem value="entry">Entry</SelectItem>
-                  <SelectItem value="intermediate">Intermediate</SelectItem>
-                  <SelectItem value="advanced">Advanced</SelectItem>
-                  <SelectItem value="expert">Expert</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Salary Select */}
-            <div className="relative">
-              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5" />
-              <Select
-                value={filters.salary || "all"}
-                onValueChange={(value) => handleSelectChange("salary", value)}
-              >
-                <SelectTrigger className="pl-10 w-full h-10">
-                  <SelectValue placeholder="Any Salary" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Any Salary</SelectItem>
-                  <SelectItem value="discutable">Negotiable</SelectItem>
-                  <SelectItem value="range">Specify Range</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+    <div className="min-h-screen flex">
+      <div className="w-92 fixed left-0 top-30 h-screen p-6 border-r">
+        <div className="flex flex-col gap-5">
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="absolute left-3 top-3 h-5 w-5" />
+            <Input
+              type="text"
+              name="search"
+              value={filters.search}
+              onChange={handleFilterChange}
+              placeholder="Search jobs..."
+              className="pl-10 w-full h-10"
+            />
           </div>
 
-          {/* Salary Range Inputs */}
-          {filters.salary === "range" && (
-            <div className="mt-4 flex gap-4">
-              <Input
-                type="number"
-                name="salaryMin"
-                value={filters.salaryMin}
-                onChange={handleFilterChange}
-                placeholder="Min Salary"
-                className="flex-1 h-10 px-3"
-              />
-              <Input
-                type="number"
-                name="salaryMax"
-                value={filters.salaryMax}
-                onChange={handleFilterChange}
-                placeholder="Max Salary"
-                className="flex-1 h-10 px-3"
-              />
+          {/* Location Input */}
+          <div className="relative">
+            <MapPin className="absolute left-3 top-3 h-5 w-5" />
+            <Input
+              type="text"
+              name="location"
+              value={filters.location}
+              onChange={handleFilterChange}
+              placeholder="Location..."
+              className="pl-10 w-full h-10"
+            />
+          </div>
+
+          {/* Experience Level Select */}
+          <div className="relative">
+            <BriefcaseIcon className="absolute left-3 top-3 h-5 w-5" />
+            <Select
+              value={filters.experienceLevel || "all"}
+              onValueChange={(value) =>
+                handleSelectChange("experienceLevel", value)
+              }
+            >
+              <SelectTrigger className="pl-10 w-full h-10">
+                <SelectValue placeholder="Any Experience Level" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Any Experience Level</SelectItem>
+                <SelectItem value="entry">Entry</SelectItem>
+                <SelectItem value="intermediate">Intermediate</SelectItem>
+                <SelectItem value="advanced">Advanced</SelectItem>
+                <SelectItem value="expert">Expert</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Salary Select */}
+          <div className="relative">
+            <DollarSign className="absolute left-3 top-3 h-5 w-5" />
+            <Select
+              value={filters.salary || "all"}
+              onValueChange={(value) => handleSelectChange("salary", value)}
+            >
+              <SelectTrigger className="pl-10 w-full h-10">
+                <SelectValue placeholder="Any Salary" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Any Salary</SelectItem>
+                <SelectItem value="discutable">Negotiable</SelectItem>
+                <SelectItem value="range">Specify Range</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Salary Range Inputs */}
+        {filters.salary === "range" && (
+          <div className="mt-4 flex gap-4">
+            <Input
+              type="number"
+              name="salaryMin"
+              value={filters.salaryMin}
+              onChange={handleFilterChange}
+              placeholder="Min Salary"
+              className="flex-1 h-10 px-3"
+            />
+            <Input
+              type="number"
+              name="salaryMax"
+              value={filters.salaryMax}
+              onChange={handleFilterChange}
+              placeholder="Max Salary"
+              className="flex-1 h-10 px-3"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex-1 ml-72">
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          {loading ? (
+            <div className="flex justify-center items-center h-64">
+              <LoadingSpinner />
+            </div>
+          ) : error ? (
+            <div className="text-center text-red-600 p-4">{error}</div>
+          ) : jobs.length === 0 ? (
+            <div className="text-center p-4">
+              No jobs found matching your criteria
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {jobs.map((job) => {
+                const validRequirements = job.requirements
+                  ? job.requirements.filter((req) => req.trim() !== "")
+                  : [];
+                return (
+                  <Card
+                    key={job._id}
+                    className="rounded-lg shadow-md bg-gradient-to-tl from-background to-muted duration-200 flex flex-col relative"
+                  >
+                    <div className="flex justify-between items-start mb-4 px-6 pt-6">
+                      <div>
+                        <h3 className="text-2xl font-semibold capitalize">
+                          {job.title}
+                        </h3>
+                        <p className="mt-1">At {job.company?.name}</p>
+                      </div>
+                      {job.company?.logo ? (
+                        <img
+                          src={job.company?.logo}
+                          alt={`${job.company?.name} logo`}
+                          className="h-12 w-24 object-contain"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center rounded bg-gray-200/50 border border-gray-200 p-2 dark:bg-gray-700/20 dark:border-gray-600 shadow-md">
+                          <span className="text-lg uppercase font-semibold text-gray-400 opacity-75 dark:text-gray-300">
+                            No Logo
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap gap-3 text-base mb-4 px-6">
+                      <div className="flex items-center">
+                        <MapPin className="h-4 w-4 mr-1" />
+                        {job.location}
+                      </div>
+                      <div className="flex items-center text-base">
+                        <BriefcaseIcon className="h-4 w-4 mr-1" />
+                        {job.experienceLevel.charAt(0).toUpperCase() +
+                          job.experienceLevel.slice(1)}
+                      </div>
+                    </div>
+
+                    <div className="mb-4 px-6">
+                      <div className="flex items-center mb-4 text-emerald-500 text-lg">
+                        <DollarSign className="h-5 w-5 mr-1" />
+                        {formatSalary(job.salary)}
+                      </div>
+
+                      <h4 className="text-base font-semibold mb-4">Requirements:</h4>
+                      {validRequirements.length > 0 ? (
+                        <ul className="flex flex-wrap gap-4">
+                          {validRequirements.slice(0, 3).map((req, index) => (
+                            <li key={index} className="flex items-start">
+                              <Badge variant="pending" className="text-[15px] capitalize font-normal">
+                                <span>{req}</span>
+                              </Badge>
+                            </li>
+                          ))}
+                          {validRequirements.length > 3 && (
+                            <li className="text-sm italic">
+                              +{validRequirements.length - 3} more requirements
+                            </li>
+                          )}
+                        </ul>
+                      ) : (
+                        <p className="text-base text-gray-600 dark:text-gray-400">None</p>
+                      )}
+                    </div>
+
+                    <div className="mt-auto flex items-center justify-center px-4 py-4 gap-8">
+                      <Button
+                        onClick={() => navigate(`/jobs/${job._id}`)}
+                        variant="default"
+                        className="w-full cursor-pointer"
+                      >
+                        View Details
+                      </Button>
+                      {!(user?.role === "recruiter" && user?._id === job.created_by) && (
+                        <Button
+                          variant="secondary"
+                          size="saveButtonJobLiting"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSaveToggle(job._id);
+                          }}
+                          disabled={savingJobs.has(job._id)}
+                          className="rounded-md transition-colors duration-200 cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2">
+                            <BookmarkIcon
+                              size={24}
+                              style={{ width: "24px", height: "24px" }}
+                              className={`h-10 w-10 ${
+                                isJobSaved(job._id) || savingJobs.has(job._id)
+                                  ? "fill-primary text-primary"
+                                  : "text-muted-foreground hover:text-foreground"
+                              }`}
+                            />
+                          </div>
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+
+          {totalPages > 1 && (
+            <div className="mt-6 flex justify-center gap-2">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <Button
+                  key={page}
+                  onClick={() => handlePageChange(page)}
+                  variant={currentPage === page ? "default" : "outline"}
+                >
+                  {page}
+                </Button>
+              ))}
             </div>
           )}
         </div>
-
-        {loading ? (
-          <div className="flex justify-center items-center h-64">
-            <LoadingSpinner />
-          </div>
-        ) : error ? (
-          <div className="text-center text-red-600 p-4">{error}</div>
-        ) : jobs.length === 0 ? (
-          <div className="text-center p-4">
-            No jobs found matching your criteria
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {jobs.map((job) => (
-              <Card
-                key={job._id}
-                className="rounded-lg shadow-md bg-gradient-to-tl from-background to-muted duration-200 flex flex-col relative"
-              >
-                <div className="flex justify-between items-start mb-4 px-6 pt-6">
-                  <div>
-                    <h3 className="text-2xl font-semibold capitalize">
-                      {job.title}
-                    </h3>
-                    <p className="mt-1">At {job.company?.name}</p>
-                  </div>
-                  {job.company?.logo ? (
-                    <img
-                      src={job.company?.logo}
-                      alt={`${job.company?.name} logo`}
-                      className="h-12 w-24 object-contain"
-                    />
-                  ) : (
-                    <div className="flex items-center justify-center rounded bg-gray-200/50 border border-gray-200 p-2 dark:bg-gray-700/20 dark:border-gray-600 shadow-md">
-                      <span className="text-lg uppercase font-semibold text-gray-400 opacity-75 dark:text-gray-300">
-                        No Logo
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap gap-3 text-sm mb-4 px-6">
-                  <div className="flex items-center">
-                    <MapPin className="h-4 w-4 mr-1" />
-                    {job.location}
-                  </div>
-                  <div className="flex items-center">
-                    <BriefcaseIcon className="h-4 w-4 mr-1" />
-                    {job.experienceLevel.charAt(0).toUpperCase() +
-                      job.experienceLevel.slice(1)}
-                  </div>
-                </div>
-
-                <div className="mb-4 px-6">
-                  <div className="flex items-center mb-4 text-emerald-500 text-lg">
-                    <DollarSign className="h-5 w-5 mr-1" />
-                    {formatSalary(job.salary)}
-                  </div>
-
-                  <h4 className="text-sm font-semibold mb-2">
-                    Requirements:
-                  </h4>
-                  <ul className="space-y-2">
-                    {job.requirements?.slice(0, 3).map((req, index) => (
-                      <li key={index} className="flex items-start text-sm">
-                        <CheckCircle2 className="h-4 w-4 mr-2 mt-0.5 text-green-500 flex-shrink-0" />
-                        <span>{req}</span>
-                      </li>
-                    ))}
-                    {job.requirements?.length > 3 && (
-                      <li className="text-sm italic">
-                        +{job.requirements.length - 3} more requirements
-                      </li>
-                    )}
-                  </ul>
-                </div>
-
-                <div className="mt-auto flex items-center justify-center px-4 py-4 gap-8">
-                  <Button
-                    onClick={() => navigate(`/jobs/${job._id}`)}
-                    variant="default"
-                    className="w-full cursor-pointer"
-                  >
-                    View Details
-                  </Button>
-                  {!(
-                    user?.role === "recruiter" &&
-                    user?._id === job.created_by
-                  ) && (
-                    <Button
-                      variant="secondary"
-                      size="saveButtonJobLiting"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSaveToggle(job._id);
-                      }}
-                      disabled={savingJobs.has(job._id)}
-                      className="top-4 right-4 rounded-md transition-colors duration-200 cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2">
-                        <BookmarkIcon
-                          size={24}
-                          style={{ width: '24px', height: '24px' }}
-                          className={`h-10 w-10${
-                            isJobSaved(job._id) || savingJobs.has(job._id)
-                              ? "fill-primary text-primary"
-                              : "text-muted-foreground hover:text-foreground"
-                          }`}
-                        />
-                      </div>
-                    </Button>
-                  )}
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {totalPages > 1 && (
-          <div className="mt-6 flex justify-center gap-2">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <Button
-                key={page}
-                onClick={() => handlePageChange(page)}
-                variant={currentPage === page ? "default" : "outline"}
-              >
-                {page}
-              </Button>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import LoadingSpinner from '@/components/LoadingSpinner'
 
 const UpdateJob = () => {
   const dispatch = useDispatch()
@@ -192,8 +193,8 @@ const UpdateJob = () => {
   // Optionally, show a loader if data is being fetched and no job is available yet
   if (loading && !job) {
     return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      <div className="flex justify-center items-center h-80">
+        <LoadingSpinner />
       </div>
     )
   }

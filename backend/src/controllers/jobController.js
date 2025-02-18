@@ -296,7 +296,7 @@ export const getAllJobs = async (req, res) => {
       salaryMin,
       salaryMax,
       page = 1,
-      limit = 10
+      limit = 9
     } = req.query;
 
     // Build a filter object; for example, only show open jobs
@@ -364,7 +364,9 @@ export const viewJob = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid job ID format." });
     }
 
-    const job = await Job.findById(id).populate("company", "name location logo"); // Populate company details
+    const job = await Job.findById(id)
+    .populate("company", "name location logo")
+    .populate({path: "applications", select: "applicant"}); // Populate company details
     if (!job) {
       return res.status(404).json({ success: false, message: "Job not found." });
     }

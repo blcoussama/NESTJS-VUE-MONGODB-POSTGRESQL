@@ -159,6 +159,14 @@ const PostJob = () => {
 
   return (
     <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+      <Button asChild variant="secondary" size="lg" className="shadow-sm">
+              <Link 
+                to={`/select-company-for-job/${currentCompany?.userId || ''}`} 
+                className="text-[17px]"
+              >
+                ← Choose Different Company
+              </Link>
+            </Button>
       <Card className="max-w-2xl mx-auto">
         <CardHeader className="px-6 py-4">
           <div className="flex justify-between items-start">
@@ -174,14 +182,6 @@ const PostJob = () => {
                 Provide job details to attract candidates
               </p>
             </div>
-            <Button asChild variant="outline">
-              <Link 
-                to={`/select-company-for-job/${currentCompany?.userId || ''}`} 
-                className="text-sm"
-              >
-                ← Choose Different Company
-              </Link>
-            </Button>
           </div>
         </CardHeader>
         <CardContent className="px-6 py-4">
@@ -306,6 +306,7 @@ const PostJob = () => {
                 name="location"
                 type="text"
                 value={formData.location}
+                placeholder="City, State, Country"
                 onChange={handleInputChange}
               />
               {formErrors.location && (

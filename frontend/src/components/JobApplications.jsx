@@ -128,8 +128,8 @@ const JobApplications = ({ jobId, recruiterId }) => {
 
               <CardContent className="mb-2">
                 <div className="flex items-center gap-2 mt-4 mb-4">
-                    <Clock className="h-6 w-6 text-gray-400" />
-                    <p className="text-base text-gray-400">
+                    <Clock className="h-6 w-6" />
+                    <p className="text-base text-gray-600 dark:text-gray-400">
                     Applied {moment(application.createdAt).fromNow()}
                     </p>
                 </div>
@@ -166,7 +166,7 @@ const JobApplications = ({ jobId, recruiterId }) => {
                     {/* Accept Dialog */}
                     <Dialog>
                       <DialogTrigger asChild>
-                        <Button variant="default" size="lg" className="text-base">
+                        <Button variant="default" size="lg" className="text-base cursor-pointer">
                           Accept
                         </Button>
                       </DialogTrigger>
@@ -179,9 +179,9 @@ const JobApplications = ({ jobId, recruiterId }) => {
                         </DialogHeader>
                         <DialogFooter>
                           <DialogClose asChild>
-                            <Button variant="outline">Cancel</Button>
+                            <Button variant="outline" className="cursor-pointer">Cancel</Button>
                           </DialogClose>
-                          <Button variant="default" onClick={() => handleAccept(application._id)}>
+                          <Button variant="default" onClick={() => handleAccept(application._id)} className="cursor-pointer">
                             Accept
                           </Button>
                         </DialogFooter>
@@ -190,7 +190,7 @@ const JobApplications = ({ jobId, recruiterId }) => {
                     {/* Reject Dialog */}
                     <Dialog>
                       <DialogTrigger asChild>
-                        <Button variant="destructive" size="lg" className="text-base">
+                        <Button variant="destructive" size="lg" className="text-base cursor-pointer">
                           Reject
                         </Button>
                       </DialogTrigger>
@@ -203,9 +203,9 @@ const JobApplications = ({ jobId, recruiterId }) => {
                         </DialogHeader>
                         <DialogFooter>
                           <DialogClose asChild>
-                            <Button variant="outline">Cancel</Button>
+                            <Button variant="outline" className="cursor-pointer">Cancel</Button>
                           </DialogClose>
-                          <Button variant="destructive" onClick={() => handleReject(application._id)}>
+                          <Button variant="destructive" onClick={() => handleReject(application._id)} className="cursor-pointer">
                             Reject
                           </Button>
                         </DialogFooter>

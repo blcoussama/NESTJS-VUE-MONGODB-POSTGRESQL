@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { Badge } from "@/components/ui/badge";
+import moment from "moment";
 
 const RecruiterJobs = () => {
   const dispatch = useDispatch();
@@ -75,9 +76,10 @@ const RecruiterJobs = () => {
                 </Badge>
               </div>
               <div className="flex items-center gap-2 mt-4 mb-4 ml-4">
-                <Clock className="h-6 w-6 text-gray-400" />
+                <Clock className="h-6 w-6" />
                 <p className="text-base text-gray-400">
                   Posted on {new Date(job.createdAt).toLocaleDateString()}
+                  <span className="ml-2 text-[15px]">({moment(job.createdAt).fromNow()})</span>
                 </p>
               </div>
           </div>
@@ -120,9 +122,9 @@ const RecruiterJobs = () => {
                     </DialogHeader>
                     <DialogFooter>
                       <DialogClose asChild>
-                        <Button variant="outline">Cancel</Button>
+                        <Button variant="outline" className="cursor-pointer">Cancel</Button>
                       </DialogClose>
-                      <Button variant="destructive" onClick={() => onDelete(job._id)}>
+                      <Button variant="destructive" onClick={() => onDelete(job._id)} className="cursor-pointer">
                         {isDeleting ? "Deleting..." : "Delete"}
                       </Button>
                     </DialogFooter>
@@ -205,7 +207,7 @@ const RecruiterJobs = () => {
         </div>
 
         {!loading && jobs?.length === 0 && (
-          <div className="text-center py-8">
+          <div className="text-lg text-center py-8">
             {isOwner
               ? "You haven't posted any jobs yet."
               : "No job postings available."}

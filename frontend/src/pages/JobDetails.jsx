@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react"
-import { useDispatch, useSelector } from "react-redux"
-import { useParams, Link, useNavigate } from "react-router-dom"
-import { viewJob, clearJob, deleteJob } from "../store/jobSlice"
-import { saveJob as saveJobAction, unsaveJob, getSavedJobs } from "../store/savedJobSlice"
-import JobApplications from "../components/JobApplications"
+import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { viewJob, clearJob, deleteJob } from "../store/jobSlice";
+import { saveJob as saveJobAction, unsaveJob, getSavedJobs } from "../store/savedJobSlice";
+import JobApplications from "../components/JobApplications";
 import {
   Trash2,
   Pencil,
@@ -16,11 +16,11 @@ import {
   Briefcase,
   Calendar,
   Users,
-} from "lucide-react"
-import axiosInstance from "../utils/axiosInstance"
+} from "lucide-react";
+import axiosInstance from "../utils/axiosInstance";
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -30,103 +30,123 @@ import {
   DialogFooter,
   DialogTrigger,
   DialogClose,
-} from "@/components/ui/dialog"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
-import { Separator } from "@/components/ui/separator"
-import LoadingSpinner from "@/components/LoadingSpinner"
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import moment from "moment";
 
 const JobDetails = () => {
-  const { id } = useParams()
-  const dispatch = useDispatch()
-  const navigate = useNavigate()
+  const { id } = useParams();
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
 
-  const { job, loading, error } = useSelector((state) => state.job)
-  const { user } = useSelector((state) => state.auth)
-  const { savedJobs } = useSelector((state) => state.savedJob)
+  const { job, loading, error } = useSelector((state) => state.job);
+  const { user } = useSelector((state) => state.auth);
+  const { savedJobs } = useSelector((state) => state.savedJob);
 
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [recruiterProfile, setRecruiterProfile] = useState(null)
-  const [savingJobs, setSavingJobs] = useState(new Set())
-
-  useEffect(() => {
-    dispatch(viewJob(id))
-    return () => dispatch(clearJob())
-  }, [dispatch, id])
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [recruiterProfile, setRecruiterProfile] = useState(null);
+  const [savingJobs, setSavingJobs] = useState(new Set());
 
   useEffect(() => {
-    dispatch(getSavedJobs())
-  }, [dispatch])
+    dispatch(viewJob(id));
+    return () => dispatch(clearJob());
+  }, [dispatch, id]);
+
+  useEffect(() => {
+    dispatch(getSavedJobs());
+  }, [dispatch]);
 
   useEffect(() => {
     const fetchRecruiterProfile = async () => {
       if (job?.created_by) {
         try {
-          const response = await axiosInstance.get(`/user/profile/${job.created_by}`)
-          setRecruiterProfile(response.data.user.profile)
+          const response = await axiosInstance.get(`/user/profile/${job.created_by}`);
+          setRecruiterProfile(response.data.user.profile);
         } catch (error) {
-          console.error("Error fetching recruiter profile:", error)
+          console.error("Error fetching recruiter profile:", error);
         }
       }
-    }
+    };
 
-    if (job) fetchRecruiterProfile()
-  }, [job])
+    if (job) fetchRecruiterProfile();
+  }, [job]);
 
-  const isJobSaved = () => savedJobs?.some((savedJob) => savedJob.job._id === job._id)
+  const isJobSaved = () => savedJobs?.some((savedJob) => savedJob.job._id === job._id);
 
   const handleSaveToggle = async (e) => {
-    e.stopPropagation()
+    e.stopPropagation();
     try {
-      setSavingJobs((prev) => new Set(prev).add(job._id))
+      setSavingJobs((prev) => new Set(prev).add(job._id));
       if (isJobSaved()) {
-        await dispatch(unsaveJob(job._id)).unwrap()
+        await dispatch(unsaveJob(job._id)).unwrap();
       } else {
-        const result = await dispatch(saveJobAction(job._id)).unwrap()
+        const result = await dispatch(saveJobAction(job._id)).unwrap();
         if (result.success) {
-          dispatch(getSavedJobs())
+          dispatch(getSavedJobs());
         }
       }
     } catch (error) {
-      console.error("Error toggling save:", error)
+      console.error("Error toggling save:", error);
     } finally {
       setSavingJobs((prev) => {
-        const newSet = new Set(prev)
-        newSet.delete(job._id)
-        return newSet
-      })
+        const newSet = new Set(prev);
+        newSet.delete(job._id);
+        return newSet;
+      });
     }
-  }
+  };
 
   const handleDelete = async () => {
     try {
-      setIsDeleting(true)
-      await dispatch(deleteJob(id)).unwrap()
-      navigate("/recruiter-jobs")
+      setIsDeleting(true);
+      await dispatch(deleteJob(id)).unwrap();
+      navigate("/recruiter-jobs");
     } catch (error) {
-      console.error("Delete job failed:", error)
+      console.error("Delete job failed:", error);
     } finally {
-      setIsDeleting(false)
+      setIsDeleting(false);
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-100">
         <LoadingSpinner />
       </div>
-    )
+    );
   }
 
   if (error) {
-    return <div className="text-center text-red-600 p-4">Error: {error}</div>
+    return <div className="text-center text-red-600 p-4">Error: {error}</div>;
   }
 
   if (!job) {
-    return null
+    return null;
   }
 
-  const isJobOwner = user?._id === job.created_by.toString() && user?.role === "recruiter"
+  const isJobOwner = user?._id === job.created_by.toString() && user?.role === "recruiter";
+
+  // Filter out empty or whitespace-only requirements
+  const validRequirements = job.requirements
+    ? job.requirements.filter((req) => req.trim() !== "")
+    : [];
+
+  // Check if candidate has already applied.
+  // This assumes that your backend populates job.applications with objects containing an "applicant" field.
+  const candidateHasApplied =
+    user?.role === "candidate" &&
+    job.applications &&
+    job.applications.some((application) => {
+      // If populated, application is an object with an applicant field.
+      if (typeof application === "object" && application.applicant) {
+        return application.applicant.toString() === user._id.toString();
+      }
+      // Otherwise, if not populated, we cannot confirm—assume false.
+      return false;
+    });
 
   return (
     <div className="container px-4">
@@ -151,12 +171,11 @@ const JobDetails = () => {
               </CardTitle>
               <CardDescription className="text-lg">
                 <Link to={`/company/${job.company?._id}`} className="flex items-center hover:underline">  
-                  <Building2 className="mr-3 h-6 w-6" />
+                  <Building2 className="mr-3 h-6 w-6 text-gray-600 dark:text-gray-300" />
                   <Button variant="secondary" className="cursor-pointer">
                     <p className="text-xl capitalize">{job.company?.name}</p>
                   </Button>
                 </Link>
-               
               </CardDescription>
             </div>
 
@@ -173,7 +192,7 @@ const JobDetails = () => {
                   <div className="flex items-center gap-2">
                     <BookmarkIcon
                       size={28}
-                      style={{ width: '28px', height: '28px' }}
+                      style={{ width: "28px", height: "28px" }}
                       className={`${
                         isJobSaved() || savingJobs.has(job._id)
                           ? "fill-primary text-primary"
@@ -215,9 +234,9 @@ const JobDetails = () => {
                       </DialogHeader>
                       <DialogFooter>
                         <DialogClose asChild>
-                          <Button variant="outline">Cancel</Button>
+                          <Button variant="outline" className="cursor-pointer">Cancel</Button>
                         </DialogClose>
-                        <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+                        <Button variant="destructive" onClick={handleDelete} disabled={isDeleting} className="cursor-pointer">
                           {isDeleting ? "Deleting..." : "Delete"}
                         </Button>
                       </DialogFooter>
@@ -233,11 +252,11 @@ const JobDetails = () => {
           <div className="grid gap-6 md:grid-cols-2">
             <div className="space-y-4">
               <div className="flex items-center">
-                <MapPin className="mr-2 h-6 w-6 text-muted-foreground" />
+                <MapPin className="mr-2 h-6 w-6 text-gray-600 dark:text-gray-300" />
                 <span>{job.location}</span>
               </div>
               <div className="flex items-center">
-                <DollarSign className="mr-2 h-6 w-6 text-muted-foreground" />
+                <DollarSign className="mr-2 h-6 w-6 text-gray-600 dark:text-gray-300" />
                 <span className="text-xl text-emerald-500">
                   {Array.isArray(job.salary)
                     ? `${job.salary[0].toLocaleString()} - ${job.salary[1].toLocaleString()}`
@@ -247,18 +266,18 @@ const JobDetails = () => {
                 </span>
               </div>
               <div className="flex items-center">
-                <Briefcase className="mr-2 h-6 w-6 text-muted-foreground" />
+                <Briefcase className="mr-2 h-6 w-6 text-gray-600 dark:text-gray-300" />
                 <span>
                   {job.experienceYears} year{job.experienceYears > 1 && "s"} -{" "}
                   {job.experienceLevel.charAt(0).toUpperCase() + job.experienceLevel.slice(1)}
                 </span>
               </div>
               <div className="flex items-center">
-                <Calendar className="mr-2 h-6 w-6 text-muted-foreground" />
-                <span>Posted on {new Date(job.createdAt).toLocaleDateString()}</span>
+                <Calendar className="mr-2 h-6 w-6 text-gray-600 dark:text-gray-300" />
+                <p>Posted on {new Date(job.createdAt).toLocaleDateString()} <span className="text-sm ml-2 text-gray-600 dark:text-gray-400">({moment(job.createdAt).fromNow()})</span></p>
               </div>
               <div className="flex items-center">
-                <Users className="mr-2 h-6 w-6 text-muted-foreground" />
+                <Users className="mr-2 h-6 w-6 text-gray-600 dark:text-gray-300" />
                 <span>
                   {job.applications?.length || 0} application{job.applications?.length !== 1 ? "s" : ""} received
                 </span>
@@ -310,13 +329,17 @@ const JobDetails = () => {
 
             <div>
               <h3 className="text-xl font-semibold mb-4">Requirements</h3>
-              <div className="flex flex-wrap gap-5">
-                {job.requirements.map((req, index) => (
-                  <Badge key={index} variant="secondary" className="text-base shadow-sm px-4 py-2">
-                    {req}
-                  </Badge>
-                ))}
-              </div>
+              {validRequirements.length > 0 ? (
+                <div className="flex flex-wrap gap-5">
+                  {validRequirements.map((req, index) => (
+                    <Badge key={index} variant="secondary" className="text-base shadow-sm px-4 py-2">
+                      {req}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-600 dark:text-gray-400">No requirements.</p>
+              )}
             </div>
           </div>
 
@@ -325,11 +348,17 @@ const JobDetails = () => {
               <Button
                 size="lg"
                 onClick={() => navigate(`/apply/${job._id}`)}
-                disabled={!job.isOpen}
-                variant={job.isOpen ? "default" : "outline"}
-                className="w-full capitalize text-base cursor-pointer"
+                disabled={!job.isOpen || candidateHasApplied}
+                variant={job.isOpen && !candidateHasApplied ? "default" : "outline"}
+                className={`w-full capitalize text-base cursor-pointer ${
+                  !job.isOpen || candidateHasApplied ? "pointer-events-none opacity-20" : ""
+                }`}
               >
-                {job.isOpen ? "Apply Now" : "Applications Closed"}
+                {candidateHasApplied
+                  ? "Already Applied"
+                  : job.isOpen
+                  ? "Apply Now"
+                  : "Applications Closed"}
               </Button>
               {!job.isOpen && (
                 <p className="mt-2 text-sm text-muted-foreground text-center">
@@ -352,7 +381,7 @@ const JobDetails = () => {
         </Card>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default JobDetails
+export default JobDetails;

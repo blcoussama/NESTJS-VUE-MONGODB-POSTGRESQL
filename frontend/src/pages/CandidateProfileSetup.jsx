@@ -291,7 +291,7 @@ const CandidateProfileUpdate = () => {
 
           {error && <p className="text-red-500 font-semibold mt-2">{error}</p>}
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button type="submit" className="w-full cursor-pointer" disabled={isLoading} >
             {isLoading ? (
               <Loader className="animate-spin mx-auto" size={24} />
             ) : (

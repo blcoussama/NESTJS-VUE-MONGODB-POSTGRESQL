@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { getCandidateApplications, withdrawApplication, clearCandidateApplications } from '../store/applicationSlice'
+import { 
+  getCandidateApplications, 
+  withdrawApplication, 
+  clearCandidateApplications,
+  clearApplicationMessages  // NEW action
+} from '../store/applicationSlice'
 import moment from 'moment'
 
 // Shadcn UI Components
@@ -18,6 +23,7 @@ const CandidateApplications = () => {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedApplicationId, setSelectedApplicationId] = useState(null)
 
+  // Fetch candidate applications on mount
   useEffect(() => {
     dispatch(getCandidateApplications())
     return () => {
@@ -25,7 +31,18 @@ const CandidateApplications = () => {
     }
   }, [dispatch])
 
-  // Opens the custom dialog instead of using window.confirm
+  // When a success or error message appears, re-fetch applications and clear the messages after 3 seconds.
+  useEffect(() => {
+    if (message || error) {
+      dispatch(getCandidateApplications())
+      const timer = setTimeout(() => {
+        dispatch(clearApplicationMessages())
+      }, 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [message, error, dispatch])
+
+  // Opens the custom dialog for withdrawal
   const openWithdrawDialog = (applicationId) => {
     setSelectedApplicationId(applicationId)
     setDialogOpen(true)
@@ -52,20 +69,15 @@ const CandidateApplications = () => {
     )
   }
 
-  if (error) {
-    return <div className="text-center text-red-600 p-4">Error: {error}</div>
-  }
-
   return (
     <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8">
       <Card className="max-w-3xl mx-auto">
         <CardHeader>
-          <CardTitle className="text-xl">My Applications</CardTitle>
+          <CardTitle className="text-2xl">My Applications</CardTitle>
         </CardHeader>
         <CardContent>
-          {message && <div className="text-green-600 mb-4">{message}</div>}
           {candidateApplications.length === 0 ? (
-            <p className="">You have not applied for any jobs yet.</p>
+            <p>You have not applied for any jobs yet.</p>
           ) : (
             <div className="space-y-4">
               {candidateApplications.map((application) => (
@@ -73,36 +85,40 @@ const CandidateApplications = () => {
                   <CardHeader>
                     <div className="flex justify-between items-center w-full">
                       <div>
-                        <h3 className="text-xl font-bold capitalize mb-5">{application.job?.title}</h3>
-                        <p className="">{application.job?.location}</p>
+                        <h3 className="text-xl font-bold capitalize mb-5">
+                          {application.job?.title}
+                        </h3>
+                        <p>{application.job?.location}</p>
                         <p className="text-sm text-gray-400">
                           Applied {moment(application.createdAt).fromNow()}
                         </p>
                       </div>
                       <div>
                         <Badge
-                            className="px-2 py-1 rounded text-base capitalize font-normal"
-                            variant = {application.status === "accepted"
-                                ? "accepted"
-                                : application.status === "rejected"
-                                ? "rejected"
-                                : application.status === "withdrawn"
-                                ? "withdrawn"
-                                : "pending"
-                            }
+                          className="px-2 py-1 rounded text-base capitalize font-normal"
+                          variant={
+                            application.status === "accepted"
+                              ? "accepted"
+                              : application.status === "rejected"
+                              ? "rejected"
+                              : application.status === "withdrawn"
+                              ? "withdrawn"
+                              : "pending"
+                          }
                         >
-                            {application.status}
+                          {application.status}
                         </Badge>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm">
-                      <span className="font-medium text-base">Experience :</span> {application.experienceYears} year
+                      <span className="font-medium text-base">Experience:</span>{' '}
+                      {application.experienceYears} year
                       {application.experienceYears > 1 ? 's' : ''} ({application.experienceLevel})
                     </p>
                     <p className="text-sm">
-                      <span className="font-medium text-base">Skills :</span>{' '}
+                      <span className="font-medium text-base">Skills:</span>{' '}
                       {Array.isArray(application.skills)
                         ? application.skills.join(', ')
                         : application.skills}
@@ -110,7 +126,11 @@ const CandidateApplications = () => {
                   </CardContent>
                   {application.status === 'pending' && (
                     <CardFooter className="flex justify-end">
-                      <Button variant="destructive" onClick={() => openWithdrawDialog(application._id)}>
+                      <Button
+                        variant="destructive"
+                        onClick={() => openWithdrawDialog(application._id)}
+                        className="cursor-pointer"
+                      >
                         Withdraw
                       </Button>
                     </CardFooter>
@@ -132,10 +152,10 @@ const CandidateApplications = () => {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} className="cursor-pointer">
               Cancel
             </Button>
-            <Button variant="destructive" onClick={confirmWithdraw}>
+            <Button variant="destructive" onClick={confirmWithdraw} className="cursor-pointer">
               Withdraw
             </Button>
           </DialogFooter>

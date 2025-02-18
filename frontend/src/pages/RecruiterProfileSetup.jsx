@@ -83,7 +83,7 @@ const RecruiterProfileUpdate = () => {
       })
 
       if (response.data.success) {
-        navigate('/company-register') // Redirect after update
+        navigate(-1) // Redirect after update
       }
     } catch (err) {
       setError(err.response?.data?.message || 'An error occurred during profile update')
@@ -184,7 +184,7 @@ const RecruiterProfileUpdate = () => {
 
           {error && <p className="text-red-500 font-semibold mt-2">{error}</p>}
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button type="submit" className="w-full cursor-pointer" disabled={isLoading}>
             {isLoading ? (
               <Loader className="animate-spin mx-auto" size={24} />
             ) : (

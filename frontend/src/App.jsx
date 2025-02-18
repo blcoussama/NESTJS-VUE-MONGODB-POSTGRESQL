@@ -150,7 +150,7 @@ function App() {
             <Route path="/select-company-for-job/:recruiterId" element={<ProtectRoute allowedRoles={['recruiter']}><SelectCompanyForJob /></ProtectRoute>} />
             <Route path="/post-job/:companyId" element={<ProtectRoute allowedRoles={['recruiter']}><PostJob /></ProtectRoute>} />
             <Route path="/update-job/:id/from/:companyId" element={<ProtectRoute allowedRoles={['recruiter']}><UpdateJob /></ProtectRoute>} />
-            <Route path="/recruiter-jobs/:recruiterId" element={<ProtectRoute allowedRoles={['recruiter']}><RecruiterJobs /></ProtectRoute>} />
+            <Route path="/recruiter-jobs/:recruiterId?" element={<ProtectRoute allowedRoles={['recruiter']}><RecruiterJobs /></ProtectRoute>} />
 
             {/* Candidate-only routes */}
             <Route path="/candidate-profile-update" element={<ProtectRoute allowedRoles={['candidate']}><CandidateProfileSetup /></ProtectRoute>} />
