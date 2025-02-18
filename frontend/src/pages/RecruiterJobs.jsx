@@ -91,7 +91,7 @@ const RecruiterJobs = () => {
                   size="lg"
                   onClick={(e) => {
                     e.stopPropagation();
-                    navigate(`/update-job/${job._id}/from/${job.company}`);
+                    navigate(`/update-job/${job._id}/from/${job.company._id}`);
                   }}
                   title="Edit"
                   className="cursor-pointer"

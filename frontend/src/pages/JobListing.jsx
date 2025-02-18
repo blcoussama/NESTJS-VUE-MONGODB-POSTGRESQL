@@ -126,7 +126,7 @@ const JobListing = () => {
 
   return (
     <div className="min-h-screen flex">
-      <div className="w-92 fixed left-0 top-30 h-screen p-6 border-r">
+      <div className="w-92 fixed left-0 top-0 pt-40 h-screen p-6 border-r shadow-2xl">
         <div className="flex flex-col gap-5">
           {/* Search Input */}
           <div className="relative">
@@ -219,8 +219,8 @@ const JobListing = () => {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 ml-72">
-        <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="flex-1 ml-96">
+        <div className="mx-auto py-6">
           {loading ? (
             <div className="flex justify-center items-center h-64">
               <LoadingSpinner />
@@ -232,7 +232,7 @@ const JobListing = () => {
               No jobs found matching your criteria
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
               {jobs.map((job) => {
                 const validRequirements = job.requirements
                   ? job.requirements.filter((req) => req.trim() !== "")
@@ -243,8 +243,8 @@ const JobListing = () => {
                     className="rounded-lg shadow-md bg-gradient-to-tl from-background to-muted duration-200 flex flex-col relative"
                   >
                     <div className="flex justify-between items-start mb-4 px-6 pt-6">
-                      <div>
-                        <h3 className="text-2xl font-semibold capitalize">
+                      <div className="max-w-96">
+                        <h3 className="text-xl font-semibold capitalize">
                           {job.title}
                         </h3>
                         <p className="mt-1">At {job.company?.name}</p>
@@ -256,8 +256,8 @@ const JobListing = () => {
                           className="h-12 w-24 object-contain"
                         />
                       ) : (
-                        <div className="flex items-center justify-center rounded bg-gray-200/50 border border-gray-200 p-2 dark:bg-gray-700/20 dark:border-gray-600 shadow-md">
-                          <span className="text-lg uppercase font-semibold text-gray-400 opacity-75 dark:text-gray-300">
+                        <div className="ml-4 min-w-24 flex items-center justify-center rounded bg-gray-200/50 border border-gray-200 p-2 dark:bg-gray-700/20 dark:border-gray-600 shadow-md">
+                          <span className="text-base uppercase font-semibold text-gray-400 opacity-75 dark:text-gray-300">
                             No Logo
                           </span>
                         </div>

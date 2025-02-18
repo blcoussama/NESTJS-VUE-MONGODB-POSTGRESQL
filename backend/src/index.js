@@ -8,18 +8,13 @@ import CompanyRoutes from "./routes/companyRoutes.js"
 import JobRoutes from "./routes/jobRoutes.js"
 import ApplicationRoutes from "./routes/applicationRoutes.js"
 import savedJobRoutes from "./routes/savedJobRoutes.js"
+import MessageRoutes from "./routes/messageRoutes.js"
 import cors from "cors"
+import { app, server } from "./utils/Socket.io.js";
 
 dotenv.config()
 
-const app = express()
 const PORT = process.env.PORT || 5000;
-
-// Validate required environment variables
-if (!process.env.MONGO_URI || !process.env.JWT_SECRET) {
-    console.error("Missing required environment variables!");
-    process.exit(1);
-}
 
 app.use(cors({ origin: "http://localhost:5173", credentials: true }));
 app.use(express.json()); // Parse JSON requests
@@ -32,11 +27,26 @@ app.use("/api/company", CompanyRoutes)
 app.use("/api/job", JobRoutes)
 app.use("/api/application", ApplicationRoutes)
 app.use("/api/saved-job", savedJobRoutes)
+app.use("/api/message", MessageRoutes)
+
+if (process.env.NODE_ENV === "production") {
+  app.use(express.static(path.join(__dirname, "../frontend/dist")));
+
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname, "../frontend", "dist", "index.html"));
+  });
+}
+
+// Validate required environment variables
+if (!process.env.MONGO_URI || !process.env.JWT_SECRET) {
+    console.error("Missing required environment variables!");
+    process.exit(1);
+}
 
 // Start the server only after connecting to the database
 connectDB()
     .then(() => {
-        app.listen(PORT, () => {
+        server.listen(PORT, () => {
             console.log(`Server running on PORT ${PORT}.`);
         });
     })

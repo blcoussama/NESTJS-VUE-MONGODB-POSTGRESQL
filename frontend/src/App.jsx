@@ -28,6 +28,7 @@ import SelectCompanyForJob from './pages/SelectCompanyForJob';
 import SavedJobs from './pages/SavedJobs';
 import AppLayout from './layout/AppLayout';
 import { ThemeProvider } from './context/ThemeProvider';
+import SocketProvider from './context/SocketProvider';
 
 // Protect routes that require authentication
 const ProtectRoute = ({ children, allowedRoles }) => {
@@ -123,45 +124,41 @@ function App() {
   if (isCheckingAuth) return <LoadingSpinner />;
 
   return (
-    <BrowserRouter>
-      <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-        <AppLayout>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<RedirectAuthenticatedUsers><OnBoarding /></RedirectAuthenticatedUsers>} />
-            <Route path="/signup" element={<RedirectAuthenticatedUsers><SignUp /></RedirectAuthenticatedUsers>} />
-            <Route path="/login" element={<RedirectAuthenticatedUsers><Login /></RedirectAuthenticatedUsers>} />
-            <Route path="/verify-email" element={<RedirectFromVerifyEmail><EmailVerification /></RedirectFromVerifyEmail>} />
-            <Route path="/forgot-password" element={<RedirectAuthenticatedUsers><ForgotPassword /></RedirectAuthenticatedUsers>} />
-            <Route path="/reset-password/:token" element={<RedirectAuthenticatedUsers><ResetPassword /></RedirectAuthenticatedUsers>} />
+          <AppLayout>
+            <Routes>
+              {/* Public routes */}
+              <Route path="/" element={<RedirectAuthenticatedUsers><OnBoarding /></RedirectAuthenticatedUsers>} />
+              <Route path="/signup" element={<RedirectAuthenticatedUsers><SignUp /></RedirectAuthenticatedUsers>} />
+              <Route path="/login" element={<RedirectAuthenticatedUsers><Login /></RedirectAuthenticatedUsers>} />
+              <Route path="/verify-email" element={<RedirectFromVerifyEmail><EmailVerification /></RedirectFromVerifyEmail>} />
+              <Route path="/forgot-password" element={<RedirectAuthenticatedUsers><ForgotPassword /></RedirectAuthenticatedUsers>} />
+              <Route path="/reset-password/:token" element={<RedirectAuthenticatedUsers><ResetPassword /></RedirectAuthenticatedUsers>} />
 
-            {/* Protected common routes */}
-            <Route path="/jobs" element={<ProtectRoute><JobListing /></ProtectRoute>} />
-            <Route path="/jobs/:id" element={<ProtectRoute><JobDetails /></ProtectRoute>} />
-            <Route path="/company/:id" element={<ProtectRoute><CompanyDetails /></ProtectRoute>} />
-            <Route path="/saved-jobs" element={<ProtectRoute><SavedJobs /></ProtectRoute>} />
-            <Route path="/profile/:id" element={<ProtectRoute><UserProfile /></ProtectRoute>} />
+              {/* Protected common routes */}
+              <Route path="/jobs" element={<ProtectRoute><JobListing /></ProtectRoute>} />
+              <Route path="/jobs/:id" element={<ProtectRoute><JobDetails /></ProtectRoute>} />
+              <Route path="/company/:id" element={<ProtectRoute><CompanyDetails /></ProtectRoute>} />
+              <Route path="/saved-jobs" element={<ProtectRoute><SavedJobs /></ProtectRoute>} />
+              <Route path="/profile/:id" element={<ProtectRoute><UserProfile /></ProtectRoute>} />
 
-            {/* Recruiter-only routes */}
-            <Route path="/recruiter-profile-update" element={<ProtectRoute allowedRoles={['recruiter']}><RecruiterProfileSetup /></ProtectRoute>} />
-            <Route path="/company-register" element={<ProtectRoute allowedRoles={['recruiter']}><CompanyRegister /></ProtectRoute>} />
-            <Route path="/update-company/:id" element={<ProtectRoute allowedRoles={['recruiter']}><CompanyUpdate /></ProtectRoute>} />
-            <Route path="/recruiter-companies/:recruiterId?" element={<ProtectRoute allowedRoles={['recruiter']}><RecruiterCompanies /></ProtectRoute>} />
-            <Route path="/select-company-for-job/:recruiterId" element={<ProtectRoute allowedRoles={['recruiter']}><SelectCompanyForJob /></ProtectRoute>} />
-            <Route path="/post-job/:companyId" element={<ProtectRoute allowedRoles={['recruiter']}><PostJob /></ProtectRoute>} />
-            <Route path="/update-job/:id/from/:companyId" element={<ProtectRoute allowedRoles={['recruiter']}><UpdateJob /></ProtectRoute>} />
-            <Route path="/recruiter-jobs/:recruiterId?" element={<ProtectRoute allowedRoles={['recruiter']}><RecruiterJobs /></ProtectRoute>} />
+              {/* Recruiter-only routes */}
+              <Route path="/recruiter-profile-update" element={<ProtectRoute allowedRoles={['recruiter']}><RecruiterProfileSetup /></ProtectRoute>} />
+              <Route path="/company-register" element={<ProtectRoute allowedRoles={['recruiter']}><CompanyRegister /></ProtectRoute>} />
+              <Route path="/update-company/:id" element={<ProtectRoute allowedRoles={['recruiter']}><CompanyUpdate /></ProtectRoute>} />
+              <Route path="/recruiter-companies/:recruiterId?" element={<ProtectRoute allowedRoles={['recruiter']}><RecruiterCompanies /></ProtectRoute>} />
+              <Route path="/select-company-for-job/:recruiterId" element={<ProtectRoute allowedRoles={['recruiter']}><SelectCompanyForJob /></ProtectRoute>} />
+              <Route path="/post-job/:companyId" element={<ProtectRoute allowedRoles={['recruiter']}><PostJob /></ProtectRoute>} />
+              <Route path="/update-job/:id/from/:companyId" element={<ProtectRoute allowedRoles={['recruiter']}><UpdateJob /></ProtectRoute>} />
+              <Route path="/recruiter-jobs/:recruiterId?" element={<ProtectRoute allowedRoles={['recruiter']}><RecruiterJobs /></ProtectRoute>} />
 
-            {/* Candidate-only routes */}
-            <Route path="/candidate-profile-update" element={<ProtectRoute allowedRoles={['candidate']}><CandidateProfileSetup /></ProtectRoute>} />
-            <Route path="/apply/:jobId" element={<ProtectRoute allowedRoles={['candidate']}><ApplyJob /></ProtectRoute>} />
-            <Route path="/candidate/applications" element={<ProtectRoute allowedRoles={['candidate']}><CandidateApplications /></ProtectRoute>} />
+              {/* Candidate-only routes */}
+              <Route path="/candidate-profile-update" element={<ProtectRoute allowedRoles={['candidate']}><CandidateProfileSetup /></ProtectRoute>} />
+              <Route path="/apply/:jobId" element={<ProtectRoute allowedRoles={['candidate']}><ApplyJob /></ProtectRoute>} />
+              <Route path="/candidate/applications" element={<ProtectRoute allowedRoles={['candidate']}><CandidateApplications /></ProtectRoute>} />
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </AppLayout>
-      </ThemeProvider>
-    </BrowserRouter>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </AppLayout>
   );
 }
 
