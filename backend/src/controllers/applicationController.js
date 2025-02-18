@@ -57,6 +57,32 @@ export const applyForJob = async (req, res) => {
         .json({ success: false, message: "Candidate not found." });
     }
 
+    // Check if candidate profile is complete
+    const profile = candidate.profile;
+    const missingFields = [];
+
+    if (!profile?.firstName?.trim()) {
+      missingFields.push("First name");
+    }
+    if (!profile?.lastName?.trim()) {
+      missingFields.push("Last name");
+    }
+    if (!profile?.skills?.length || !Array.isArray(profile.skills)) {
+      missingFields.push("Skills");
+    }
+    if (!profile?.resume?.trim()) {
+      missingFields.push("Resume");
+    }
+
+    if (missingFields.length > 0) {
+      const errorMessage = `Please complete your profile by adding: ${missingFields.join(', ')}`;
+      return res.status(400).json({
+        success: false,
+        message: errorMessage,
+        missingFields // Optional: include array of missing fields in response
+      });
+    }
+
     // Get additional experience details from the request body
     const { experienceYears, experienceLevel } = req.body;
     if (experienceYears === undefined || !experienceLevel) {

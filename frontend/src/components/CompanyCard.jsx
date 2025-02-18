@@ -1,145 +1,137 @@
 /* eslint-disable react/prop-types */
-import { useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
-import { deleteCompany } from '../store/companySlice';
-import { Globe, MapPin, Pencil, Trash2, X } from 'lucide-react';
+import { useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
+import { deleteCompany, getRecruiterCompanies } from "../store/companySlice";
+import { Globe, Loader2, MapPin, Pencil, Trash2 } from "lucide-react";
+
+// Shadcn UI components (adjust import paths as needed)
+import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
 
 const CompanyCard = ({ company }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
-  
+
   // Check if the current user is the recruiter owner of this company
-  const isOwner = user?.role === 'recruiter' && user?._id === company.userId;
-  
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const isOwner = user?.role === "recruiter" && user?._id === company.userId;
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDelete = async () => {
     try {
       setIsDeleting(true);
       await dispatch(deleteCompany(company._id)).unwrap();
-      // The company list will be automatically updated through Redux
+      // Add this line to force a refresh of the companies list
+      dispatch(getRecruiterCompanies(company.userId));
     } catch (error) {
-      console.error('Error deleting company:', error);
+      console.error("Error deleting company:", error);
     } finally {
       setIsDeleting(false);
-      setShowDeleteModal(false);
     }
   };
 
   return (
-    <>
-      <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-        <div className="relative h-32 bg-gradient-to-r from-blue-500 to-blue-600">
-          {company.logo && (
-            <div className="absolute -bottom-10 left-4">
-              <img
-                src={company.logo}
-                alt={`${company.name} logo`}
-                className="w-20 h-20 rounded-lg border-4 border-white bg-white object-contain"
-              />
+    <Card className="relative hover:shadow-lg transition-shadow">
+      <CardHeader className="relative h-32 bg-gradient-to-r from-background to-muted rounded-t-xl">
+        {company.logo && (
+          <div className="absolute -bottom-10 left-4">
+            <img
+              src={company.logo}
+              alt={`${company.name} logo`}
+              className="w-36 h-20 rounded-sm border px-4 object-contain"
+            />
+          </div>
+        )}
+      </CardHeader>
+      <CardContent className={company.logo ? "pt-12" : "pt-4"}>
+        <div className="flex justify-between items-start">
+          <CardTitle className="text-2xl font-semibold truncate">
+            {company.name}
+          </CardTitle>
+          {isOwner && (
+            <div className="flex gap-2">
+              <Button
+              className="cursor-pointer"
+                variant="outline"
+                onClick={() => navigate(`/update-company/${company._id}`)}
+                title="Edit company"
+              >
+                <Pencil className="h-5 w-5" />
+              </Button>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="destructive" title="Delete company" className="cursor-pointer">
+                    {isDeleting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-5 w-5" />
+                    )}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Confirm Delete</DialogTitle>
+                    <DialogDescription>
+                      Are you sure you want to delete {company.name}? This action cannot be undone.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <DialogClose asChild>
+                      <Button variant="outline" className="cursor-pointer">Cancel</Button>
+                    </DialogClose>
+                    <Button variant="destructive" onClick={handleDelete} disabled={isDeleting} className="cursor-pointer">
+                      {isDeleting ? "Deleting..." : "Delete"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           )}
         </div>
 
-        <div className={`p-4 ${company.logo ? 'pt-12' : 'pt-4'}`}>
-          <div className="flex justify-between items-start">
-            <h3 className="text-xl font-semibold text-gray-900 truncate">
-              {company.name}
-            </h3>
-            {isOwner && (
-              <div className="flex gap-2">
-                <button
-                  onClick={() => navigate(`/update-company/${company._id}`)}
-                  className="p-1 text-gray-600 hover:text-blue-600 rounded-full hover:bg-blue-50"
-                  title="Edit company"
-                >
-                  <Pencil className="h-5 w-5" />
-                </button>
-                <button
-                  onClick={() => setShowDeleteModal(true)}
-                  className="p-1 text-gray-600 hover:text-red-600 rounded-full hover:bg-red-50"
-                  title="Delete company"
-                >
-                  <Trash2 className="h-5 w-5" />
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-2 space-y-2 text-gray-600">
-            {company.location && (
-              <div className="flex items-center gap-1">
-                <MapPin className="h-4 w-4" />
-                <span className="text-sm">{company.location}</span>
-              </div>
-            )}
-            {company.website && (
-              <div className="flex items-center gap-1">
-                <Globe className="h-4 w-4" />
-                <a
-                  href={company.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-blue-600 hover:underline truncate"
-                >
-                  {company.website}
-                </a>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-4">
-            <button
-              onClick={() => navigate(`/company/${company._id}`)}
-              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-            >
-              View Details →
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Confirm Delete</h3>
-              <button
-                onClick={() => setShowDeleteModal(false)}
-                className="text-gray-400 hover:text-gray-500"
-              >
-                <X className="h-5 w-5" />
-              </button>
+        <div className="mt-2 space-y-2 mb-16">
+          {company.location && (
+            <div className="flex items-center gap-1">
+              <MapPin className="h-4 w-4" />
+              <span className="text-base">{company.location}</span>
             </div>
-            
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete {company.name}? This action cannot be undone.
-            </p>
-
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowDeleteModal(false)}
-                disabled={isDeleting}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
+          )}
+          {company.website && (
+            <div className="flex items-center gap-1">
+              <Globe className="h-4 w-4" />
+              <a
+                href={company.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-base hover:underline text-blue-500 truncate underline hover:text-blue-400"
               >
-                Cancel
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={isDeleting}
-                className="px-4 py-2 text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50"
-              >
-                {isDeleting ? 'Deleting...' : 'Delete'}
-              </button>
+                {company.website}
+              </a>
             </div>
-          </div>
+          )}
         </div>
-      )}
-    </>
+      </CardContent>
+      {/* Absolute positioned "View Details" button */}
+      <Button
+      size="lg"
+        variant="secondary"
+        onClick={() => navigate(`/company/${company._id}`)}
+        className="absolute bottom-5 right-5 text-[17px] cursor-pointer"
+      >
+        View Details
+      </Button>
+    </Card>
   );
 };
 

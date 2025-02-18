@@ -139,11 +139,12 @@ const companySlice = createSlice({
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(deleteCompany.fulfilled, (state, { payload }) => {
+      .addCase(deleteCompany.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.message = payload.message;
-        // Remove the company from the list if stored
-        state.companies = state.companies.filter(company => company._id !== payload.company?._id);
+        state.message = action.payload.message;
+        state.companies = state.companies.filter(
+          company => company._id !== action.meta.arg
+        );
       })
       .addCase(deleteCompany.rejected, (state, { payload }) => {
         state.isLoading = false;

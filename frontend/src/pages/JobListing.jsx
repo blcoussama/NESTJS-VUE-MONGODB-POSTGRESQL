@@ -1,24 +1,47 @@
-import { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { getAllJobs } from '../store/jobSlice';
-import { saveJob, unsaveJob, getSavedJobs } from '../store/savedJobSlice';
-import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, BriefcaseIcon, DollarSign, Loader2, CheckCircle2, BookmarkIcon } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { getAllJobs } from "../store/jobSlice";
+import { saveJob, unsaveJob, getSavedJobs } from "../store/savedJobSlice";
+import { useNavigate } from "react-router-dom";
+import {
+  Search,
+  MapPin,
+  BriefcaseIcon,
+  DollarSign,
+  CheckCircle2,
+  BookmarkIcon,
+} from "lucide-react";
+
+// Import shadcn UI components (adjust paths as needed)
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 const JobListing = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { jobs, loading, error, totalPages, currentPage } = useSelector((state) => state.job);
-  const { savedJobs } = useSelector((state) => state.savedJob); // Removed the unused "loading" alias
+  const { jobs, loading, error, totalPages, currentPage } = useSelector(
+    (state) => state.job
+  );
+  const { savedJobs } = useSelector((state) => state.savedJob);
+  const { user } = useSelector((state) => state.auth);
   const [savingJobs, setSavingJobs] = useState(new Set());
 
   const [filters, setFilters] = useState({
-    search: '',
-    location: '',
-    experienceLevel: '',
-    salary: '',
-    salaryMin: '',
-    salaryMax: '',
+    search: "",
+    location: "",
+    experienceLevel: "",
+    salary: "",
+    salaryMin: "",
+    salaryMax: "",
     page: 1,
   });
 
@@ -39,27 +62,26 @@ const JobListing = () => {
     dispatch(getSavedJobs());
   }, [dispatch]);
 
+  // Helper to check if a job is saved
   const isJobSaved = (jobId) => {
-    return savedJobs?.some(savedJob => savedJob.job._id === jobId);
+    return savedJobs?.some((savedJob) => savedJob.job._id === jobId);
   };
 
   const handleSaveToggle = async (jobId) => {
     try {
-      setSavingJobs(prev => new Set(prev).add(jobId));
-      
+      setSavingJobs((prev) => new Set(prev).add(jobId));
       if (isJobSaved(jobId)) {
         await dispatch(unsaveJob(jobId)).unwrap();
       } else {
         const result = await dispatch(saveJob(jobId)).unwrap();
-        // If the job was saved successfully, refresh the saved jobs list
         if (result.success) {
           dispatch(getSavedJobs());
         }
       }
     } catch (error) {
-      console.error('Failed to toggle job save:', error);
+      console.error("Failed to toggle job save:", error);
     } finally {
-      setSavingJobs(prev => {
+      setSavingJobs((prev) => {
         const newSet = new Set(prev);
         newSet.delete(jobId);
         return newSet;
@@ -69,109 +91,129 @@ const JobListing = () => {
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-    setFilters(prev => ({
+    setFilters((prev) => ({
       ...prev,
       [name]: value,
-      page: 1
+      page: 1,
+    }));
+  };
+
+  // For the shadcn UI Select, we use onValueChange. We'll treat "all" as the "any" option.
+  const handleSelectChange = (name, value) => {
+    setFilters((prev) => ({
+      ...prev,
+      [name]: value === "all" ? "" : value,
+      page: 1,
     }));
   };
 
   const handlePageChange = (newPage) => {
-    setFilters(prev => ({
+    setFilters((prev) => ({
       ...prev,
-      page: newPage
+      page: newPage,
     }));
   };
 
   const formatSalary = (salary) => {
     if (Array.isArray(salary)) {
-      return `$${salary[0].toLocaleString()} - $${salary[1].toLocaleString()}`;
+      return `${salary[0].toLocaleString()} - ${salary[1].toLocaleString()}`;
     }
-    if (salary === 'discutable') {
-      return 'Negotiable';
+    if (salary === "discutable") {
+      return "Negotiable";
     }
-    return `$${salary.toLocaleString()}`;
+    return `${salary.toLocaleString()}`;
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen p-8 pt-0">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">Find Your Next Opportunity</h1>
-          
+        <div className="rounded-xl shadow-sm p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Search Input */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <input
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5" />
+              <Input
                 type="text"
                 name="search"
                 value={filters.search}
                 onChange={handleFilterChange}
                 placeholder="Search jobs..."
-                className="pl-10 w-full h-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                className="pl-10 w-full h-10"
               />
             </div>
 
+            {/* Location Input */}
             <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <input
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5" />
+              <Input
                 type="text"
                 name="location"
                 value={filters.location}
                 onChange={handleFilterChange}
                 placeholder="Location..."
-                className="pl-10 w-full h-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                className="pl-10 w-full h-10"
               />
             </div>
 
+            {/* Experience Level Select */}
             <div className="relative">
-              <BriefcaseIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <select
-                name="experienceLevel"
-                value={filters.experienceLevel}
-                onChange={handleFilterChange}
-                className="pl-10 w-full h-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none appearance-none bg-white"
+              <BriefcaseIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5" />
+              <Select
+                value={filters.experienceLevel || "all"}
+                onValueChange={(value) =>
+                  handleSelectChange("experienceLevel", value)
+                }
               >
-                <option value="">Any Experience Level</option>
-                <option value="entry">Entry</option>
-                <option value="intermediate">Intermediate</option>
-                <option value="advanced">Advanced</option>
-                <option value="expert">Expert</option>
-              </select>
+                <SelectTrigger className="pl-10 w-full h-10">
+                  <SelectValue placeholder="Any Experience Level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Any Experience Level</SelectItem>
+                  <SelectItem value="entry">Entry</SelectItem>
+                  <SelectItem value="intermediate">Intermediate</SelectItem>
+                  <SelectItem value="advanced">Advanced</SelectItem>
+                  <SelectItem value="expert">Expert</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
+            {/* Salary Select */}
             <div className="relative">
-              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <select
-                name="salary"
-                value={filters.salary}
-                onChange={handleFilterChange}
-                className="pl-10 w-full h-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none appearance-none bg-white"
+              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5" />
+              <Select
+                value={filters.salary || "all"}
+                onValueChange={(value) => handleSelectChange("salary", value)}
               >
-                <option value="">Any Salary</option>
-                <option value="discutable">Negotiable</option>
-                <option value="range">Specify Range</option>
-              </select>
+                <SelectTrigger className="pl-10 w-full h-10">
+                  <SelectValue placeholder="Any Salary" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Any Salary</SelectItem>
+                  <SelectItem value="discutable">Negotiable</SelectItem>
+                  <SelectItem value="range">Specify Range</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          {filters.salary === 'range' && (
+          {/* Salary Range Inputs */}
+          {filters.salary === "range" && (
             <div className="mt-4 flex gap-4">
-              <input
+              <Input
                 type="number"
                 name="salaryMin"
                 value={filters.salaryMin}
                 onChange={handleFilterChange}
                 placeholder="Min Salary"
-                className="flex-1 h-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none px-3"
+                className="flex-1 h-10 px-3"
               />
-              <input
+              <Input
                 type="number"
                 name="salaryMax"
                 value={filters.salaryMax}
                 onChange={handleFilterChange}
                 placeholder="Max Salary"
-                className="flex-1 h-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none px-3"
+                className="flex-1 h-10 px-3"
               />
             </div>
           )}
@@ -179,40 +221,27 @@ const JobListing = () => {
 
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+            <LoadingSpinner />
           </div>
         ) : error ? (
           <div className="text-center text-red-600 p-4">{error}</div>
         ) : jobs.length === 0 ? (
-          <div className="text-center text-gray-500 p-4">No jobs found matching your criteria</div>
+          <div className="text-center p-4">
+            No jobs found matching your criteria
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {jobs.map((job) => (
-              <div 
-                key={job._id} 
-                className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 p-6 flex flex-col relative"
+              <Card
+                key={job._id}
+                className="rounded-lg shadow-md bg-gradient-to-tl from-background to-muted duration-200 flex flex-col relative"
               >
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleSaveToggle(job._id);
-                  }}
-                  disabled={savingJobs.has(job._id)}
-                  className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 transition-colors duration-200"
-                >
-                  <BookmarkIcon 
-                    className={`h-6 w-6 ${
-                      isJobSaved(job._id) || savingJobs.has(job._id)
-                        ? 'fill-blue-500 text-blue-500' 
-                        : 'text-gray-400 hover:text-gray-600'
-                    }`}
-                  />
-                </button>
-
-                <div className="flex justify-between items-start mb-4">
+                <div className="flex justify-between items-start mb-4 px-6 pt-6">
                   <div>
-                    <h3 className="text-xl font-semibold text-gray-900">{job.title}</h3>
-                    <p className="text-gray-500 mt-1">{job.company?.name}</p>
+                    <h3 className="text-2xl font-semibold capitalize">
+                      {job.title}
+                    </h3>
+                    <p className="mt-1">At {job.company?.name}</p>
                   </div>
                   {job.company?.logo ? (
                     <img
@@ -221,53 +250,87 @@ const JobListing = () => {
                       className="h-12 w-24 object-contain"
                     />
                   ) : (
-                    <div className="h-12 w-12 bg-gray-100 flex items-center justify-center rounded">
-                      <span className="text-gray-500 text-xs">No Logo</span>
+                    <div className="flex items-center justify-center rounded bg-gray-200/50 border border-gray-200 p-2 dark:bg-gray-700/20 dark:border-gray-600 shadow-md">
+                      <span className="text-lg uppercase font-semibold text-gray-400 opacity-75 dark:text-gray-300">
+                        No Logo
+                      </span>
                     </div>
                   )}
                 </div>
 
-                <div className="flex flex-wrap gap-3 text-sm text-gray-600 mb-4">
+                <div className="flex flex-wrap gap-3 text-sm mb-4 px-6">
                   <div className="flex items-center">
                     <MapPin className="h-4 w-4 mr-1" />
                     {job.location}
                   </div>
                   <div className="flex items-center">
                     <BriefcaseIcon className="h-4 w-4 mr-1" />
-                    {job.experienceLevel.charAt(0).toUpperCase() + job.experienceLevel.slice(1)}
-                  </div>
-                  <div className="flex items-center">
-                    <DollarSign className="h-4 w-4 mr-1" />
-                    {formatSalary(job.salary)}
+                    {job.experienceLevel.charAt(0).toUpperCase() +
+                      job.experienceLevel.slice(1)}
                   </div>
                 </div>
 
-                <div className="mb-4">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Requirements:</h4>
+                <div className="mb-4 px-6">
+                  <div className="flex items-center mb-4 text-emerald-500 text-lg">
+                    <DollarSign className="h-5 w-5 mr-1" />
+                    {formatSalary(job.salary)}
+                  </div>
+
+                  <h4 className="text-sm font-semibold mb-2">
+                    Requirements:
+                  </h4>
                   <ul className="space-y-2">
                     {job.requirements?.slice(0, 3).map((req, index) => (
-                      <li key={index} className="flex items-start text-sm text-gray-600">
+                      <li key={index} className="flex items-start text-sm">
                         <CheckCircle2 className="h-4 w-4 mr-2 mt-0.5 text-green-500 flex-shrink-0" />
                         <span>{req}</span>
                       </li>
                     ))}
                     {job.requirements?.length > 3 && (
-                      <li className="text-sm text-gray-500 italic">
+                      <li className="text-sm italic">
                         +{job.requirements.length - 3} more requirements
                       </li>
                     )}
                   </ul>
                 </div>
 
-                <div className="mt-auto">
-                  <button
+                <div className="mt-auto flex items-center justify-center px-4 py-4 gap-8">
+                  <Button
                     onClick={() => navigate(`/jobs/${job._id}`)}
-                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200"
+                    variant="default"
+                    className="w-full cursor-pointer"
                   >
                     View Details
-                  </button>
+                  </Button>
+                  {!(
+                    user?.role === "recruiter" &&
+                    user?._id === job.created_by
+                  ) && (
+                    <Button
+                      variant="secondary"
+                      size="saveButtonJobLiting"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSaveToggle(job._id);
+                      }}
+                      disabled={savingJobs.has(job._id)}
+                      className="top-4 right-4 rounded-md transition-colors duration-200 cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <BookmarkIcon
+                          size={24}
+                          style={{ width: '24px', height: '24px' }}
+                          className={`h-10 w-10${
+                            isJobSaved(job._id) || savingJobs.has(job._id)
+                              ? "fill-primary text-primary"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        />
+                      </div>
+                    </Button>
+                  )}
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         )}
@@ -275,17 +338,13 @@ const JobListing = () => {
         {totalPages > 1 && (
           <div className="mt-6 flex justify-center gap-2">
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <button
+              <Button
                 key={page}
                 onClick={() => handlePageChange(page)}
-                className={`px-4 py-2 rounded-md transition-colors duration-200 ${
-                  currentPage === page
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
-                }`}
+                variant={currentPage === page ? "default" : "outline"}
               >
                 {page}
-              </button>
+              </Button>
             ))}
           </div>
         )}

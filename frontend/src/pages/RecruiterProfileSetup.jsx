@@ -1,86 +1,103 @@
-import { motion } from 'framer-motion';
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { User, Upload, Loader } from 'lucide-react';
-import FormInput from '../components/FormInput';
-import axiosInstance from '../utils/axiosInstance';
-import { useSelector } from 'react-redux';
+import { motion } from 'framer-motion'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { User, Upload, Loader, X } from 'lucide-react'
+import axiosInstance from '../utils/axiosInstance'
+import { useSelector } from 'react-redux'
+
+// Shadcn UI Components
+import { CardHeader, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
+import LoadingSpinner from '@/components/LoadingSpinner'
 
 const RecruiterProfileUpdate = () => {
-  const { user: currentUser } = useSelector((state) => state.auth);
-  const navigate = useNavigate();
+  const { user: currentUser } = useSelector((state) => state.auth)
+  const navigate = useNavigate()
 
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [profilePicture, setProfilePicture] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [profilePicture, setProfilePicture] = useState(null)
+  const [previewUrl, setPreviewUrl] = useState('')
+  const [removeProfilePicture, setRemoveProfilePicture] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState('')
 
   // Fetch existing profile data on mount
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const response = await axiosInstance.get(`/user/profile/${currentUser._id}`);
-        const profile = response.data.user.profile;
-        setFirstName(profile.firstName || '');
-        setLastName(profile.lastName || '');
+        const response = await axiosInstance.get(`/user/profile/${currentUser._id}`)
+        const profile = response.data.user.profile
+        setFirstName(profile.firstName || '')
+        setLastName(profile.lastName || '')
         if (profile.profilePicture) {
-          setPreviewUrl(profile.profilePicture);
+          setPreviewUrl(profile.profilePicture)
         }
       } catch (err) {
-        setError(err.response?.data?.message || 'Error fetching profile');
+        setError(err.response?.data?.message || 'Error fetching profile')
       } finally {
-        setIsLoading(false);
+        setIsLoading(false)
       }
-    };
+    }
 
     if (currentUser && currentUser._id) {
-      fetchProfile();
+      fetchProfile()
     }
-  }, [currentUser]);
+  }, [currentUser])
 
   const handleImageChange = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files[0]
     if (file) {
-      setProfilePicture(file);
-      setPreviewUrl(URL.createObjectURL(file));
+      setRemoveProfilePicture(false)
+      setProfilePicture(file)
+      setPreviewUrl(URL.createObjectURL(file))
     }
-  };
+  }
+
+  const handleRemoveProfilePicture = () => {
+    setRemoveProfilePicture(true)
+    setProfilePicture(null)
+    setPreviewUrl('')
+  }
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError('');
+    e.preventDefault()
+    setIsLoading(true)
+    setError('')
 
     try {
-      const formData = new FormData();
-      formData.append('firstName', firstName);
-      formData.append('lastName', lastName);
-      if (profilePicture) {
-        formData.append('profilePicture', profilePicture);
+      const formData = new FormData()
+      formData.append('firstName', firstName)
+      formData.append('lastName', lastName)
+      if (removeProfilePicture) {
+        formData.append('removeProfilePicture', 'true')
+      } else if (profilePicture) {
+        formData.append('profilePicture', profilePicture)
       }
 
       const response = await axiosInstance.put('/user/recruiter-profile-update', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      })
 
       if (response.data.success) {
-        navigate('/company-register'); // Redirect after update
+        navigate('/company-register') // Redirect after update
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'An error occurred during profile update');
+      setError(err.response?.data?.message || 'An error occurred during profile update')
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   if (isLoading) {
     return (
       <motion.div className="flex justify-center items-center h-64">
-        <Loader className="animate-spin h-8 w-8" />
+        <LoadingSpinner />
       </motion.div>
-    );
+    )
   }
 
   return (
@@ -88,76 +105,96 @@ const RecruiterProfileUpdate = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="max-w-md w-full bg-gray-900 bg-opacity-50 backdrop-filter backdrop-blur-xl rounded-2xl shadow-xl overflow-hidden mx-auto mt-8"
+      className="max-w-md mx-auto p-8 mt-8 rounded-2xl bg-card border shadow-xl"
     >
-      <div className="p-8">
-        <h2 className="text-3xl font-bold mb-6 text-center bg-gradient-to-r from-blue-300 to-blue-600 text-transparent bg-clip-text">
+      <CardHeader>
+        <h2 className="text-3xl font-bold mb-6 text-center">
           Update Your Profile
         </h2>
-
-        <form onSubmit={handleSubmit}>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-6">
           {/* Profile Picture Upload */}
-          <div className="mb-6 flex flex-col items-center">
-            <div className="w-32 h-32 rounded-full bg-gray-700 overflow-hidden mb-4">
+          <div className="mb-6 flex flex-col items-center relative ">
+            <Avatar className="w-32 h-32 mb-4 border-3">
               {previewUrl ? (
-                <img
-                  src={previewUrl}
-                  alt="Profile preview"
-                  className="w-full h-full object-cover"
-                />
+                <AvatarImage src={previewUrl} alt="Profile preview" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <User size={48} className="text-gray-400" />
-                </div>
+                <AvatarFallback>
+                  <User size={90} className="text-gray-400" />
+                </AvatarFallback>
               )}
-            </div>
-            <label className="cursor-pointer flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-200">
-              <Upload size={20} />
-              Upload Photo
-              <input
-                type="file"
-                className="hidden"
-                accept="image/*"
-                onChange={handleImageChange}
-              />
-            </label>
+            </Avatar>
+            {previewUrl && (
+              <Button
+                variant="destructive"
+                size="icon"
+                className="absolute top-0 right-0 cursor-pointer"
+                onClick={handleRemoveProfilePicture}
+              >
+                <X size={16} />
+              </Button>
+            )}
+            <Button asChild variant="default">
+              <label htmlFor="file-upload" className="cursor-pointer flex items-center gap-2">
+                <Upload size={20} />
+                Upload Photo
+              </label>
+            </Button>
+            <input
+              id="file-upload"
+              type="file"
+              className="hidden"
+              accept="image/*"
+              onChange={handleImageChange}
+            />
           </div>
 
-          <FormInput
-            icon={User}
-            type="text"
-            placeholder="First Name"
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-          />
+          {/* First Name */}
+          <div>
+            <Label htmlFor="firstName" className="text-base">
+              First Name
+            </Label>
+            <Input
+              className="mt-2"
+              id="firstName"
+              name="firstName"
+              type="text"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              placeholder="Enter your first name"
+            />
+          </div>
 
-          <FormInput
-            icon={User}
-            type="text"
-            placeholder="Last Name"
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
-          />
+          {/* Last Name */}
+          <div>
+            <Label htmlFor="lastName" className="text-base">
+              Last Name
+            </Label>
+            <Input
+              className="mt-2"
+              id="lastName"
+              name="lastName"
+              type="text"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              placeholder="Enter your last name"
+            />
+          </div>
 
           {error && <p className="text-red-500 font-semibold mt-2">{error}</p>}
 
-          <motion.button
-            className="mt-5 w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold rounded-lg shadow-lg hover:from-blue-600 hover:to-blue-700 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition duration-200"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            type="submit"
-            disabled={isLoading}
-          >
+          <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? (
               <Loader className="animate-spin mx-auto" size={24} />
             ) : (
-              "Update Profile"
+              'Update Profile'
             )}
-          </motion.button>
+          </Button>
         </form>
-      </div>
+      </CardContent>
     </motion.div>
-  );
-};
+  )
+}
 
-export default RecruiterProfileUpdate;
+export default RecruiterProfileUpdate

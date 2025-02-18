@@ -275,7 +275,7 @@ export const getJobsByRecruiter = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid recruiter ID format." });
     }
 
-    const jobs = await Job.find({ created_by: recruiterId }).sort({ createdAt: -1 });
+    const jobs = await Job.find({ created_by: recruiterId }).sort({ createdAt: -1 }).populate("company", "name logo");;
 
     return res.status(200).json({ success: true, jobs });
   } catch (error) {

@@ -1,10 +1,26 @@
 /* eslint-disable react/prop-types */
-import { useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { getJobApplications, acceptApplication, rejectApplication, clearJobApplications } from '../store/applicationSlice';
-import moment from 'moment';
-import { User } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { getJobApplications, acceptApplication, rejectApplication, clearJobApplications } from "../store/applicationSlice";
+import moment from "moment";
+import { Clock, FileText, User } from "lucide-react";
+import { Link } from "react-router-dom";
+// Shadcn UI components for Card and Button
+import { Card,CardContent, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Badge } from "./ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import LoadingSpinner from "./LoadingSpinner";
 
 const JobApplications = ({ jobId, recruiterId }) => {
   const dispatch = useDispatch();
@@ -12,134 +28,193 @@ const JobApplications = ({ jobId, recruiterId }) => {
   const { user } = useSelector((state) => state.auth);
 
   useEffect(() => {
-    if (user?._id === recruiterId && user?.role === 'recruiter') {
+    if (user?._id === recruiterId && user?.role === "recruiter") {
       dispatch(getJobApplications(jobId));
     }
-
     return () => {
       dispatch(clearJobApplications());
     };
   }, [dispatch, jobId, recruiterId, user]);
 
   const handleAccept = async (applicationId) => {
-    if (window.confirm('Are you sure you want to accept this application? This will reject all other pending applications.')) {
-      await dispatch(acceptApplication(applicationId));
-      dispatch(getJobApplications(jobId));
-    }
+    await dispatch(acceptApplication(applicationId));
+    dispatch(getJobApplications(jobId));
   };
 
   const handleReject = async (applicationId) => {
-    if (window.confirm('Are you sure you want to reject this application?')) {
-      await dispatch(rejectApplication(applicationId));
-      dispatch(getJobApplications(jobId));
-    }
+    await dispatch(rejectApplication(applicationId));
+    dispatch(getJobApplications(jobId));
   };
 
-  if (user?.role !== 'recruiter' || user?._id !== recruiterId) {
+  if (user?.role !== "recruiter" || user?._id !== recruiterId) {
     return null;
   }
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-32">
-        <p>Loading applications...</p>
+        <LoadingSpinner widthClass="w-10" heightClass="h-10" />
       </div>
     );
   }
 
   if (error) {
-    return <div className="text-red-600 p-4">Error: {error}</div>;
+    return (
+      <div className="text-red-600 p-4 text-center">Error: {error}</div>
+    );
   }
 
   return (
-    <div className="mt-8">
-      <h2 className="text-xl font-bold mb-4">Applications ({jobApplications.length})</h2>
-      
+    <div className="mt-4">
       {jobApplications.length === 0 ? (
-        <p className="text-gray-600">No applications yet.</p>
+        <p className="">No applications yet.</p>
       ) : (
         <div className="space-y-4">
           {jobApplications.map((application) => (
-            <div key={application._id} className="bg-white shadow rounded p-4">
-              <div className="flex justify-between items-start mb-2">
-                <div className="flex items-center gap-3">
-                  <Link 
-                    to={`/profile/${application.applicant._id}`}
-                    className="hover:bg-gray-50 p-1 rounded-full"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-                      {application.applicant.profile?.profilePicture ? (
-                        <img 
-                          src={application.applicant.profile.profilePicture} 
-                          alt="Candidate profile" 
-                          className="w-full h-full rounded-full object-cover"
-                        />
-                      ) : (
-                        <User size={20} className="text-gray-400" />
-                      )}
+            <Card key={application._id} className="shadow rounded-sm p-4 pt-8">
+              <div className="flex justify-between items-start mb-2 pl-6 pr-4">
+                <div className="">
+                    <div className="flex items-center gap-3">
+                        <Button
+                          variant="secondary"
+                          size="recruiterIconButton"
+                          asChild
+                          className="w-full justify-start p-6 hover:shadow-md transition-shadow"
+                        >
+                          <Link
+                            to={`/profile/${application.applicant._id}`}
+                            className="flex items-center gap-3 rounded transition-colors"
+                          >
+                            <Avatar className="w-15 h-15 border-2 border-gray-600 rounded-full">
+                              {application.applicant.profile?.profilePicture ? (
+                                <AvatarImage
+                                  src={application.applicant.profile.profilePicture}
+                                  alt="Candidate profile"
+                                />
+                              ) : (
+                                <AvatarFallback className="flex items-center justify-center">
+                                  <User style={{ width: "40px", height: "40px" }} className="text-gray-600" />
+                                </AvatarFallback>
+                              )}
+                            </Avatar>
+                            <div>
+                              <p className="font-medium text-lg">
+                                {application.applicant.profile?.firstName} {application.applicant.profile?.lastName}
+                              </p>
+                              <p className="text-base text-muted-foreground">Candidate</p>
+                            </div>
+                          </Link>
+                        </Button>
                     </div>
-                  </Link>
-                  <div>
-                    <h3 className="font-semibold">
-                      <Link 
-                        to={`/profile/${application.applicant._id}`}
-                        className="hover:text-blue-600"
-                      >
-                        {application.applicant.profile?.firstName} {application.applicant.profile?.lastName}
-                      </Link>
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      Applied {moment(application.createdAt).fromNow()}
-                    </p>
-                  </div>
                 </div>
-                <span className={`px-2 py-1 rounded text-sm ${
-                  application.status === 'accepted' ? 'bg-green-100 text-green-800' :
-                  application.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                  'bg-blue-100 text-blue-800'
-                }`}>
-                  {application.status}
-                </span>
+
+                <div>
+                    {/* Status displayed at the top right */}
+                    <Badge
+                        className="px-2 py-1 rounded text-lg capitalize font-normal"
+                        variant = {application.status === "accepted"
+                            ? "accepted"
+                            : application.status === "rejected"
+                            ? "rejected"
+                            : application.status === "withdrawn"
+                            ? "withdrawn"
+                            : "pending"
+                        }
+                    >
+                    {application.status}
+                    </Badge>
+                </div>   
               </div>
 
-              <div className="mb-2">
-                <p className="text-sm">
-                  <span className="font-medium">Experience:</span> {application.experienceYears} years (
+              <CardContent className="mb-2">
+                <div className="flex items-center gap-2 mt-4 mb-4">
+                    <Clock className="h-6 w-6 text-gray-400" />
+                    <p className="text-base text-gray-400">
+                    Applied {moment(application.createdAt).fromNow()}
+                    </p>
+                </div>
+                <p className="text-lg capitalize">
+                  <span className="font-medium text-xl capi">Experience : </span>{" "}
+                  {application.experienceYears} {application.experienceYears > 1 ? "years" : "y ear"} (
                   {application.experienceLevel})
-                </p>
-                <p className="text-sm">
-                  <span className="font-medium">Skills:</span> {application.skills.join(', ')}
-                </p>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <a
-                  href={application.resume}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline text-sm"
-                >
-                  View Resume
-                </a>
-
-                {application.status === 'pending' && (
+                </p> 
+                <div className="flex flex-wrap gap-2 capitalize mt-6">
+                    <span className="font-medium text-xl">Skills:</span>
+                    {Array.isArray(application.skills)
+                    ? application.skills.map((skill, index) => (
+                        <Badge key={index} variant="pending" className="text-base">
+                            {skill}
+                        </Badge>
+                        ))
+                    : <Badge variant="pending" className="text-base">{application.skills}</Badge>}
+                </div>
+              </CardContent>
+              <CardFooter className="flex items-center justify-between">
+                <Badge variant="secondary" className="py-3 px-4 shadow hover:shadow-lg transition-shadow">
+                    <a
+                        href={application.resume}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-500 text-lg flex items-center gap-2"
+                        >
+                        <FileText size={30} /> View Resume
+                    </a>
+                </Badge>
+                
+                {application.status === "pending" && (
                   <div className="space-x-2">
-                    <button
-                      onClick={() => handleAccept(application._id)}
-                      className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
-                    >
-                      Accept
-                    </button>
-                    <button
-                      onClick={() => handleReject(application._id)}
-                      className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
-                    >
-                      Reject
-                    </button>
+                    {/* Accept Dialog */}
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="default" size="lg" className="text-base">
+                          Accept
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                        <DialogHeader>
+                          <DialogTitle>Confirm Accept</DialogTitle>
+                          <DialogDescription>
+                            Are you sure you want to accept this application? This will reject all other pending applications.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                          <DialogClose asChild>
+                            <Button variant="outline">Cancel</Button>
+                          </DialogClose>
+                          <Button variant="default" onClick={() => handleAccept(application._id)}>
+                            Accept
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                    {/* Reject Dialog */}
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="destructive" size="lg" className="text-base">
+                          Reject
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                        <DialogHeader>
+                          <DialogTitle>Confirm Reject</DialogTitle>
+                          <DialogDescription>
+                            Are you sure you want to reject this application?
+                          </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                          <DialogClose asChild>
+                            <Button variant="outline">Cancel</Button>
+                          </DialogClose>
+                          <Button variant="destructive" onClick={() => handleReject(application._id)}>
+                            Reject
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
                   </div>
                 )}
-              </div>
-            </div>
+              </CardFooter>
+            </Card>
           ))}
         </div>
       )}

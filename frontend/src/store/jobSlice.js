@@ -114,6 +114,7 @@ const initialState = {
   jobs: [],
   loading: false,
   error: null,
+  message: null,
   totalPages: 0,
   currentPage: 1,
 };
@@ -125,8 +126,12 @@ const jobSlice = createSlice({
     clearError(state) {
       state.error = null;
     },
+    clearMessage(state) {
+      state.message = null;
+    },
     clearJob(state) {
       state.job = null;
+      state.message = null;
     },
   },
   extraReducers: (builder) => {
@@ -135,41 +140,50 @@ const jobSlice = createSlice({
       .addCase(postJob.pending, (state) => {
         state.loading = true;
         state.error = null;
+        state.message = null;
       })
       .addCase(postJob.fulfilled, (state, action) => {
         state.loading = false;
         state.job = action.payload.job;
+        state.message = action.payload.message;
       })
       .addCase(postJob.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
+
       // updateJob
       .addCase(updateJob.pending, (state) => {
         state.loading = true;
         state.error = null;
+        state.message = null;
       })
       .addCase(updateJob.fulfilled, (state, action) => {
         state.loading = false;
         state.job = action.payload.job;
+        state.message = action.payload.message;
       })
       .addCase(updateJob.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
+
       // deleteJob
       .addCase(deleteJob.pending, (state) => {
         state.loading = true;
         state.error = null;
+        state.message = null;
       })
-      .addCase(deleteJob.fulfilled, (state) => {
+      .addCase(deleteJob.fulfilled, (state, action) => {
         state.loading = false;
-        state.job = null;
+        state.message = action.payload.message;
+        state.jobs = state.jobs.filter(job => job._id !== action.meta.arg);
       })
       .addCase(deleteJob.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
+
       // getJobsByRecruiter
       .addCase(getJobsByRecruiter.pending, (state) => {
         state.loading = true;
@@ -183,6 +197,7 @@ const jobSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
+
       // getAllJobs
       .addCase(getAllJobs.pending, (state) => {
         state.loading = true;
@@ -198,6 +213,7 @@ const jobSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
+
       // viewJob
       .addCase(viewJob.pending, (state) => {
         state.loading = true;
@@ -211,6 +227,7 @@ const jobSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
+
       // getJobsByCompany
       .addCase(getJobsByCompany.pending, (state) => {
         state.loading = true;
@@ -227,5 +244,5 @@ const jobSlice = createSlice({
   },
 });
 
-export const { clearError, clearJob } = jobSlice.actions;
+export const { clearError, clearMessage, clearJob } = jobSlice.actions;
 export default jobSlice.reducer;

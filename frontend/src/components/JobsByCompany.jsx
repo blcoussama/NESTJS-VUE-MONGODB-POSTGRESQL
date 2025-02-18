@@ -1,11 +1,12 @@
-import { useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { getJobsByCompany, clearError } from '../store/jobSlice';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { getJobsByCompany, clearError } from "../store/jobSlice";
+import { useParams, useNavigate } from "react-router-dom";
+// Import shadcn UI Card components 
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import LoadingSpinner from "./LoadingSpinner";
 
 const JobsByCompany = () => {
-  // We assume that the company ID is provided in the URL as "id"
   const { id: companyId } = useParams();
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -23,7 +24,7 @@ const JobsByCompany = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[200px]">
-        <Loader2 className="animate-spin h-8 w-8 text-blue-600" />
+        <LoadingSpinner widthClass="10" heightClass="10" />
       </div>
     );
   }
@@ -38,7 +39,7 @@ const JobsByCompany = () => {
 
   if (!jobs || jobs.length === 0) {
     return (
-      <div className="text-center text-gray-600">
+      <div className="text-center">
         <p>No jobs posted by this company.</p>
       </div>
     );
@@ -46,25 +47,29 @@ const JobsByCompany = () => {
 
   return (
     <div className="mt-8">
-      <h2 className="text-2xl font-bold mb-4">Jobs at this Company</h2>
+      <h2 className="text-2xl font-bold mb-6">Jobs at this Company</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         {jobs.map((job) => (
-          <div
+          <Card
             key={job._id}
-            className="p-4 border rounded-lg shadow hover:shadow-lg transition duration-200 cursor-pointer"
             onClick={() => navigate(`/jobs/${job._id}`)}
+            className="cursor-pointer bg-gradient-to-r from-background to-muted duration-200 hover:shadow-md transition-shadow"
           >
-            <h3 className="text-lg font-semibold">{job.title}</h3>
-            <p className="text-gray-600 mt-1">
-              {job.description.length > 80
-                ? job.description.substring(0, 80) + '...'
-                : job.description}
-            </p>
-            <p className="text-sm text-gray-500 mt-2">
-              Experience: {job.experienceYears} years, {job.experienceLevel}
-            </p>
-            <p className="text-sm text-gray-500">Location: {job.location}</p>
-          </div>
+            <CardHeader>
+              <CardTitle className="text-xl font-semibold capitalize">{job.title}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <p className="">
+                {job.description.length > 80
+                  ? `${job.description.substring(0, 80)}...`
+                  : job.description}
+              </p>
+              <p className="text-sm">
+                <span className="text-base font-semibold">Experience : </span> {job.experienceYears} {job.experienceYears > 1 ? "years" : "year"}, {job.experienceLevel}
+              </p>
+              <p className="text-sm"><span className="text-base font-semibold">Location : </span> {job.location}</p>
+            </CardContent>
+          </Card>
         ))}
       </div>
     </div>

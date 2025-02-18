@@ -2,6 +2,19 @@ import { User } from "../models/userModel.js";
 import cloudinary from "../utils/Cloudinary.js";
 import mongoose from "mongoose";
 
+// Helper to extract Cloudinary public_id from a secure URL.
+// Assumes the URL is of the form: 
+// https://res.cloudinary.com/<cloud_name>/image/upload/v1234567890/folder/fileName.ext
+const getPublicIdFromUrl = (url) => {
+  // Look for the "/upload/" segment and remove everything after the last dot.
+  const uploadSegment = '/upload/';
+  const uploadIndex = url.indexOf(uploadSegment);
+  if (uploadIndex === -1) return null;
+  const start = uploadIndex + uploadSegment.length;
+  const end = url.lastIndexOf('.');
+  return url.substring(start, end);
+};
+
 export const recruiterProfileSetup = async (req, res) => {
   try {
     // Use userId from the token
@@ -10,7 +23,7 @@ export const recruiterProfileSetup = async (req, res) => {
       return res.status(401).json({ success: false, message: "Unauthorized. User not found." });
     }
 
-    const { firstName, lastName } = req.body;
+    const { firstName, lastName, removeProfilePicture } = req.body;
     
     if (!firstName || !lastName) {
       return res.status(400).json({ success: false, message: "First name and last name are required!" });
@@ -30,8 +43,19 @@ export const recruiterProfileSetup = async (req, res) => {
       return res.status(403).json({ success: false, message: "Access denied. User is not a recruiter!" });
     }
 
-    // Handle profile picture upload if a file was provided
-    if (req.files && req.files.profilePicture && req.files.profilePicture.length > 0) {
+    // Remove profile picture if removeProfilePicture flag is true
+    if (removeProfilePicture === "true") {
+        if (user.profile.profilePicture) {
+          // Assume the profile picture is stored in "profile_pictures" folder.
+          const parts = user.profile.profilePicture.split('/');
+          const filenameWithExt = parts[parts.length - 1]; // e.g. "myPic.jpg"
+          const filename = filenameWithExt.split('.')[0];   // e.g. "myPic"
+          // Use the folder name to form the public_id
+          await cloudinary.uploader.destroy(`profile_pictures/${filename}`);
+        }
+        user.profile.profilePicture = "";
+    } else if (req.files && req.files.profilePicture && req.files.profilePicture.length > 0) {
+      // Handle profile picture upload if a file was provided
       const file = req.files.profilePicture[0];
       try {
         console.log("File received:", {
@@ -67,7 +91,6 @@ export const recruiterProfileSetup = async (req, res) => {
       }
     }
 
-
     // Update profile fields
     user.profile.firstName = firstName;
     user.profile.lastName = lastName;
@@ -100,7 +123,6 @@ export const recruiterProfileSetup = async (req, res) => {
   }
 };
 
-
 export const candidateProfileSetup = async (req, res) => {
   try {
     // Use userId from the token
@@ -109,7 +131,7 @@ export const candidateProfileSetup = async (req, res) => {
       return res.status(401).json({ success: false, message: "Unauthorized. User not found." });
     }
  
-    const { firstName, lastName, description, skills } = req.body;
+    const { firstName, lastName, description, skills, removeProfilePicture, removeResume } = req.body;
     
     if (!firstName || !lastName) {
       return res.status(400).json({ success: false, message: "First name and last name are required!" });
@@ -127,8 +149,18 @@ export const candidateProfileSetup = async (req, res) => {
       return res.status(403).json({ success: false, message: "Access denied. User is not a candidate!" });
     }
 
-    // Process profile picture if provided; otherwise, clear the field.
-    if (req.files && req.files.profilePicture && req.files.profilePicture.length > 0) {
+    // Process profile picture: remove if flag is set; otherwise, process upload if provided.
+    if (removeProfilePicture === "true") {
+      if (user.profile.profilePicture) {
+        // Assume the profile picture is stored in "profile_pictures" folder.
+        const parts = user.profile.profilePicture.split('/');
+        const filenameWithExt = parts[parts.length - 1]; // e.g. "myPic.jpg"
+        const filename = filenameWithExt.split('.')[0];   // e.g. "myPic"
+        // Use the folder name to form the public_id
+        await cloudinary.uploader.destroy(`profile_pictures/${filename}`);
+      }
+      user.profile.profilePicture = "";
+    } else if (req.files && req.files.profilePicture && req.files.profilePicture.length > 0) {
       try {
         const profilePicFile = req.files.profilePicture[0];
         console.log("Profile Picture File received:", {
@@ -140,7 +172,7 @@ export const candidateProfileSetup = async (req, res) => {
         const b64 = Buffer.from(profilePicFile.buffer).toString("base64");
         const dataURI = "data:" + profilePicFile.mimetype + ";base64," + b64;
 
-        console.log("Attempting to upload profile pi.cture to Cloudinary...");
+        console.log("Attempting to upload profile picture to Cloudinary...");
         const uploadResult = await cloudinary.uploader.upload(dataURI, {
           folder: "profile_pictures",
           resource_type: 'auto',
@@ -158,13 +190,18 @@ export const candidateProfileSetup = async (req, res) => {
           error: uploadError.message
         });
       }
-    } else {
-      // Clear the profile picture field if no file provided
-      user.profile.profilePicture = "";
-    }
+    } 
 
-    // Process resume if provided; otherwise, clear the field.
-    if (req.files && req.files.resume && req.files.resume.length > 0) {
+    // Process resume: remove if flag is set; otherwise, process upload if provided.
+    if (removeResume === "true") {
+      if (user.profile.resume) {
+        const publicId = getPublicIdFromUrl(user.profile.resume);
+        if (publicId) {
+          await cloudinary.uploader.destroy(publicId, { resource_type: 'raw' });
+        }
+        user.profile.resume = "";
+      }
+    } else if (req.files && req.files.resume && req.files.resume.length > 0) {
       try {
         const resumeFile = req.files.resume[0];
         console.log("Resume File received:", {
@@ -191,7 +228,6 @@ export const candidateProfileSetup = async (req, res) => {
           folder: "resumes",
           resource_type: 'auto',
           allowed_formats: ['pdf'],
-          // Set public_id to the original file name (without extension) to preserve the name
           public_id: resumeFile.originalname.split('.')[0],
           transformation: [{ format: 'pdf' }]
         };
@@ -208,9 +244,6 @@ export const candidateProfileSetup = async (req, res) => {
           error: uploadError.message
         });
       }
-    } else {
-      // Clear the resume field if no file provided
-      user.profile.resume = "";
     }
 
     // Update other profile fields
@@ -252,7 +285,6 @@ export const candidateProfileSetup = async (req, res) => {
     });
   }
 };
-
 
 export const viewUserProfile = async (req, res) => {
   try {

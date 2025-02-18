@@ -203,14 +203,12 @@ export const updateCompany = async (req, res) => {
         message: "Company name cannot be empty!"
       });
     }
-
     if (location && !location.trim()) {
       return res.status(400).json({
         success: false,
         message: "Company location cannot be empty!"
       });
     }
-
     if (website && !validateUrl(website)) {
       return res.status(400).json({
         success: false,
@@ -224,7 +222,6 @@ export const updateCompany = async (req, res) => {
         _id: { $ne: id },
         name: { $regex: new RegExp(`^${name}$`, 'i') }
       });
-      
       if (existingCompany) {
         return res.status(400).json({
           success: false,
@@ -239,7 +236,6 @@ export const updateCompany = async (req, res) => {
         _id: { $ne: id },
         website: { $regex: new RegExp(`^${website}$`, 'i') }
       });
-      
       if (existingCompany) {
         return res.status(400).json({
           success: false,
@@ -248,18 +244,23 @@ export const updateCompany = async (req, res) => {
       }
     }
 
-    // Process logo upload if provided
-    if (req.files?.logo?.[0]) {
+    // Process removal of logo if requested
+    if (req.body.removeLogo === 'true') {
+      if (company.logo) {
+        const publicId = company.logo.split('/').pop().split('.')[0];
+        await cloudinary.uploader.destroy(`company_logos/${publicId}`);
+      }
+      company.logo = "";
+    } else if (req.files?.logo?.[0]) {
+      // Process logo upload if provided and not removing
       const logoFile = req.files.logo[0];
       const maxSize = 5 * 1024 * 1024;
-      
       if (logoFile.size > maxSize) {
         return res.status(400).json({
           success: false,
           message: "Logo file size must be less than 5MB"
         });
       }
-
       const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
       if (!allowedTypes.includes(logoFile.mimetype)) {
         return res.status(400).json({
