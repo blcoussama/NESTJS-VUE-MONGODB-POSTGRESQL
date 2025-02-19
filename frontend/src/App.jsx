@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import LoadingSpinner from './components/LoadingSpinner';
 import SignUp from './pages/SignUp';
 import Login from './pages/Login';
@@ -26,9 +26,8 @@ import UserProfile from './pages/UserProfile';
 import CandidateApplications from './pages/CandidateApplications';
 import SelectCompanyForJob from './pages/SelectCompanyForJob';
 import SavedJobs from './pages/SavedJobs';
+// import Chat from './pages/Chat';
 import AppLayout from './layout/AppLayout';
-import { ThemeProvider } from './context/ThemeProvider';
-import SocketProvider from './context/SocketProvider';
 
 // Protect routes that require authentication
 const ProtectRoute = ({ children, allowedRoles }) => {
@@ -155,6 +154,9 @@ function App() {
               <Route path="/candidate-profile-update" element={<ProtectRoute allowedRoles={['candidate']}><CandidateProfileSetup /></ProtectRoute>} />
               <Route path="/apply/:jobId" element={<ProtectRoute allowedRoles={['candidate']}><ApplyJob /></ProtectRoute>} />
               <Route path="/candidate/applications" element={<ProtectRoute allowedRoles={['candidate']}><CandidateApplications /></ProtectRoute>} />
+
+              {/* Chat route: userToChatId is provided in the URL */}
+              {/* <Route path="/chat/:userToChatId" element={<ProtectRoute><Chat /></ProtectRoute>} /> */}
 
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

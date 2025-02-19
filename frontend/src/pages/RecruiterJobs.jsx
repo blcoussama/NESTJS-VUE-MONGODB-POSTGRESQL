@@ -62,27 +62,12 @@ const RecruiterJobs = () => {
       >
         <CardHeader className="">
           {/* Title and action buttons row */}
-          <div className="flex justify-between items-center">
-            <div className="flex justify-center items-center gap-5">
+          <div className="flex justify-between items-center mb-5">
+            <div className="">
               <CardTitle className="text-3xl font-semibold capitalize">
                 {job.title} 
               </CardTitle>
-              <div className="mt-1">
-                <Badge
-                  variant={job.isOpen ? "open" : "closed"}
-                  className="text-sm px-3 py-1 tracking-wider"
-                  >
-                  {job.isOpen ? "OPEN" : "CLOSED"}
-                </Badge>
-              </div>
-              <div className="flex items-center gap-2 mt-4 mb-4 ml-4">
-                <Clock className="h-6 w-6" />
-                <p className="text-base text-gray-400">
-                  Posted on {new Date(job.createdAt).toLocaleDateString()}
-                  <span className="ml-2 text-[15px]">({moment(job.createdAt).fromNow()})</span>
-                </p>
-              </div>
-          </div>
+            </div>
             
             {isOwner && (
               <div className="flex gap-4">
@@ -134,7 +119,22 @@ const RecruiterJobs = () => {
             )}
           </div>
           {/* Company Info Row */}
-          <p className="text-lg">
+          <div className="">
+            <Badge
+              variant={job.isOpen ? "open" : "closed"}
+              className="text-base px-3 py-1 tracking-wider"
+              >
+              {job.isOpen ? "OPEN" : "CLOSED"}
+            </Badge>
+          </div>
+          <div className="flex items-center gap-2 mt-4 mb-4">
+            <Clock className="h-6 w-6" />
+            <p className="text-base text-gray-400">
+              Posted on {new Date(job.createdAt).toLocaleDateString()}
+              <span className="ml-2 text-[15px]">({moment(job.createdAt).fromNow()})</span>
+            </p>
+          </div>
+          <p className="text-xl capitalize">
               At {job.company?.name || "Unknown Company"}
           </p>
           <div className="mt-4">

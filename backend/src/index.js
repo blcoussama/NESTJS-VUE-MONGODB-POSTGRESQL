@@ -2,6 +2,7 @@ import express from "express"
 import dotenv from "dotenv"
 import { connectDB } from './database/dbConfig.js';
 import cookieParser from 'cookie-parser';
+import path from 'path';
 import AuthRoutes from "./routes/authRoutes.js"
 import UserRoutes from "./routes/userRoutes.js"
 import CompanyRoutes from "./routes/companyRoutes.js"
@@ -10,15 +11,25 @@ import ApplicationRoutes from "./routes/applicationRoutes.js"
 import savedJobRoutes from "./routes/savedJobRoutes.js"
 import MessageRoutes from "./routes/messageRoutes.js"
 import cors from "cors"
-import { app, server } from "./utils/Socket.io.js";
+import http from "http";
+import { initializeSocket } from "./utils/Socket.io.js";
 
 dotenv.config()
 
 const PORT = process.env.PORT || 5000;
 
+// Create Express app
+const app = express();
+// Create HTTP server with Express app
+const server = http.createServer(app);
+
+// Initialize middleware
 app.use(cors({ origin: "http://localhost:5173", credentials: true }));
 app.use(express.json()); // Parse JSON requests
 app.use(cookieParser()); // Parse incoming cookies
+
+// Initialize Socket.IO with the server
+initializeSocket(server);
 
 // Routes
 app.use("/api/auth", AuthRoutes)
@@ -29,6 +40,7 @@ app.use("/api/application", ApplicationRoutes)
 app.use("/api/saved-job", savedJobRoutes)
 app.use("/api/message", MessageRoutes)
 
+// Serve static assets in production
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(__dirname, "../frontend/dist")));
 

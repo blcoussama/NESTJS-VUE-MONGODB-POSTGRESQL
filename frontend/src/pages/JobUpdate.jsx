@@ -224,7 +224,6 @@ const UpdateJob = () => {
               type="text"
               value={formData.title}
               onChange={handleInputChange}
-              required
             />
             {formErrors.title && (
               <p className="mt-1 text-sm text-red-600">{formErrors.title}</p>

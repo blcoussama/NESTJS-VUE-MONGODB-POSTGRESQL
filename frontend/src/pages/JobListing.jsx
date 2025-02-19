@@ -9,6 +9,8 @@ import {
   BriefcaseIcon,
   DollarSign,
   BookmarkIcon,
+  Building2,
+  Calendar
 } from "lucide-react";
 
 // Import shadcn UI components (adjust paths as needed)
@@ -24,6 +26,7 @@ import {
 import { Input } from "@/components/ui/input";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { Badge } from "@/components/ui/badge";
+import moment from "moment";
 
 const JobListing = () => {
   const dispatch = useDispatch();
@@ -219,8 +222,8 @@ const JobListing = () => {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 ml-96">
-        <div className="mx-auto py-6">
+      <div className="flex-1 ml-86">
+        <div className="py-6">
           {loading ? (
             <div className="flex justify-center items-center h-64">
               <LoadingSpinner />
@@ -232,7 +235,7 @@ const JobListing = () => {
               No jobs found matching your criteria
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+            <div className="">
               {jobs.map((job) => {
                 const validRequirements = job.requirements
                   ? job.requirements.filter((req) => req.trim() !== "")
@@ -240,14 +243,20 @@ const JobListing = () => {
                 return (
                   <Card
                     key={job._id}
-                    className="rounded-lg shadow-md bg-gradient-to-tl from-background to-muted duration-200 flex flex-col relative"
+                    className="rounded-lg shadow-md bg-gradient-to-tl from-background to-muted duration-200 flex flex-col relative mb-5"
                   >
-                    <div className="flex justify-between items-start mb-4 px-6 pt-6">
-                      <div className="max-w-96">
-                        <h3 className="text-xl font-semibold capitalize">
+                    <div className="flex justify-between items-start mb-5 px-6 pt-6">
+                      <div className="">
+                        <h3 className="text-2xl font-semibold capitalize">
                           {job.title}
                         </h3>
-                        <p className="mt-1">At {job.company?.name}</p>
+                        <p className="mt-4 text-xl flex"><Building2 className="h-6 w-6 mr-2" />At {job.company?.name}</p>
+                        <div className="flex mt-4">
+                        <Calendar className="mr-2 h-6 w-6 text-gray-600 dark:text-gray-300" />
+                          <p>Posted on {new Date(job.createdAt).toLocaleDateString()} 
+                            <span className="ml-2 text-gray-600 dark:text-gray-400">({moment(job.createdAt).fromNow()})</span>
+                          </p>
+                        </div>
                       </div>
                       {job.company?.logo ? (
                         <img
@@ -256,21 +265,21 @@ const JobListing = () => {
                           className="h-12 w-24 object-contain"
                         />
                       ) : (
-                        <div className="ml-4 min-w-24 flex items-center justify-center rounded bg-gray-200/50 border border-gray-200 p-2 dark:bg-gray-700/20 dark:border-gray-600 shadow-md">
-                          <span className="text-base uppercase font-semibold text-gray-400 opacity-75 dark:text-gray-300">
+                        <div className="flex items-center justify-center rounded bg-gray-200/50 border border-gray-200 p-2 dark:bg-gray-700/20 dark:border-gray-600 shadow-md">
+                          <span className="text-xl uppercase font-semibold text-gray-400 opacity-75 dark:text-gray-300">
                             No Logo
                           </span>
                         </div>
                       )}
                     </div>
-
-                    <div className="flex flex-wrap gap-3 text-base mb-4 px-6">
-                      <div className="flex items-center">
-                        <MapPin className="h-4 w-4 mr-1" />
+                        
+                    <div className="flex flex-wrap gap-5 text-base mb-4 px-6"> 
+                      <div className="flex items-center text-lg">
+                        <MapPin className="h-6 w-6 mr-2" />
                         {job.location}
                       </div>
-                      <div className="flex items-center text-base">
-                        <BriefcaseIcon className="h-4 w-4 mr-1" />
+                      <div className="flex items-center text-lg">
+                        <BriefcaseIcon className="h-6 w-6 mr-2" />
                         {job.experienceLevel.charAt(0).toUpperCase() +
                           job.experienceLevel.slice(1)}
                       </div>
@@ -282,19 +291,19 @@ const JobListing = () => {
                         {formatSalary(job.salary)}
                       </div>
 
-                      <h4 className="text-base font-semibold mb-4">Requirements:</h4>
+                      <h4 className="text-lg font-semibold mb-4">Requirements:</h4>
                       {validRequirements.length > 0 ? (
                         <ul className="flex flex-wrap gap-4">
-                          {validRequirements.slice(0, 3).map((req, index) => (
+                          {validRequirements.slice(0, 5).map((req, index) => (
                             <li key={index} className="flex items-start">
-                              <Badge variant="pending" className="text-[15px] capitalize font-normal">
+                              <Badge variant="pending" className="text-base capitalize font-normal">
                                 <span>{req}</span>
                               </Badge>
                             </li>
                           ))}
-                          {validRequirements.length > 3 && (
-                            <li className="text-sm italic">
-                              +{validRequirements.length - 3} more requirements
+                          {validRequirements.length > 5 && (
+                            <li className="text-base italic">
+                              +{validRequirements.length - 5} more requirements
                             </li>
                           )}
                         </ul>

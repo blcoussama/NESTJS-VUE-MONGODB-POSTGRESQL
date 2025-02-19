@@ -296,7 +296,7 @@ export const getAllJobs = async (req, res) => {
       salaryMin,
       salaryMax,
       page = 1,
-      limit = 9
+      limit = 15
     } = req.query;
 
     // Build a filter object; for example, only show open jobs

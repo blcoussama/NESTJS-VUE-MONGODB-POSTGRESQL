@@ -1,11 +1,11 @@
 import { Message } from "../models/messageModel.js";
 import { User } from "../models/userModel.js"
 import cloudinary from "../utils/Cloudinary.js";
-
+import { io, getReceiverSocketId } from "../utils/Socket.io.js";
 
 export const getUsersForSidebar = async (req, res) => {
     try {
-        const loggedInUserId = req.user.userId; // Use userId here
+        const loggedInUserId = req.user.userId;
         const users = await User.find({ _id: { $ne: loggedInUserId } }).select("-password");
         res.status(200).json(users);
     } catch (error) {
@@ -14,11 +14,9 @@ export const getUsersForSidebar = async (req, res) => {
     }
 };
 
-
 export const getMessages = async (req, res) => {
     try {
         const { id: userToChatId } = req.params;
-        // Use req.user.userId because that's what the middleware sets
         const myId = req.user.userId;
 
         const messages = await Message.find({
@@ -35,12 +33,10 @@ export const getMessages = async (req, res) => {
     }
 };
 
-
 export const sendMessages = async (req, res) => {
   try {
     const { text } = req.body;
     const { id: receiverId } = req.params;
-    // Use req.user.userId as set by your auth middleware
     const senderId = req.user.userId;
 
     // Validate that the receiver exists
@@ -98,6 +94,12 @@ export const sendMessages = async (req, res) => {
     });
 
     await newMessage.save();
+    
+    // Socket.IO notification for real-time updates
+    const receiverSocketId = getReceiverSocketId(receiverId);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("newMessage", newMessage);
+    }
 
     res.status(201).json({
       success: true,
@@ -114,7 +116,6 @@ export const sendMessages = async (req, res) => {
   }
 };
 
-
 export const deleteMessage = async (req, res) => {
   try {
     const { id } = req.params;
@@ -126,22 +127,31 @@ export const deleteMessage = async (req, res) => {
 
     // If the message has an image, attempt to delete it from Cloudinary.
     if (message.image) {
-      // Assuming your image URL is like:
-      // https://res.cloudinary.com/<cloud_name>/upload/v<version>/message_images/<publicId>.<ext>
-      // We can extract the public_id using string manipulation.
+      // Extract the public_id from the Cloudinary URL
       const urlParts = message.image.split('/');
-      // Get the filename with extension (last part)
       const fileName = urlParts.pop();
-      // Optionally, if your folder structure is more complex, you might need to join more segments.
-      // Here we assume the image is stored in the "message_images" folder.
       const publicId = `message_images/${fileName.split('.')[0]}`;
       
-      // Call Cloudinary to delete the image
-      await cloudinary.uploader.destroy(publicId);
+      try {
+        // Call Cloudinary to delete the image
+        await cloudinary.uploader.destroy(publicId);
+      } catch (cloudinaryError) {
+        console.error("Cloudinary delete error:", cloudinaryError);
+        // Continue with message deletion even if image deletion fails
+      }
     }
 
+    // Store receiverId before deleting the message
+    const { receiverId } = message;
+    
     // Remove the message from the database
     await message.deleteOne();
+
+    // Notify about message deletion via Socket.IO
+    const receiverSocketId = getReceiverSocketId(receiverId);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("messageDeleted", id);
+    }
 
     return res.status(200).json({ success: true, message: "Message deleted successfully" });
   } catch (error) {

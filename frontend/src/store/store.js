@@ -9,6 +9,7 @@
   import jobReducer from './jobSlice';
   import applicationReducer from './applicationSlice';
   import savedJobReducer from './savedJobSlice';
+  import chatReducer from './chatSlice';
 
   // Configure persist for auth reducer
   const authPersistConfig = {
@@ -27,7 +28,8 @@
       company: companyReducer,
       job: jobReducer,
       application: applicationReducer,
-      savedJob: savedJobReducer
+      savedJob: savedJobReducer,
+      chat: chatReducer
     },
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware({

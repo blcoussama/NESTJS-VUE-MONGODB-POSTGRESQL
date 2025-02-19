@@ -1,27 +1,59 @@
-import { Server } from "socket.io"
-import http from "http"
-import express from "express"
+// backend/src/utils/Socket.io.js
+import { Server } from "socket.io";
 
-const app = express();
-const server = http.createServer(app);
+// Map to track online users
+const userSocketMap = {}; // {userId: socketId}
 
-const io = new Server(server, {
+let io;
+
+// Initialize socket with existing server
+const initializeSocket = (server) => {
+  // Initialize Socket.io with the HTTP server
+  io = new Server(server, {
     cors: {
-        origin: ["http://localhost:5173"],
-        // Force the WebSocket transport:
-  transports: ["websocket"],
-  // Optionally adjust ping settings:
-  pingInterval: 10000,
-  pingTimeout: 5000,
+      origin: ["http://localhost:5173"],
+      credentials: true
     }
-})
+  });
 
-io.on("connection", (socket) => {
+  io.on("connection", (socket) => {
     console.log("A user connected", socket.id);
-
+    
+    const userId = socket.handshake.query.userId;
+    if (userId) userSocketMap[userId] = socket.id;
+    
+    // Send current online users to all clients
+    io.emit("getOnlineUsers", Object.keys(userSocketMap));
+    
+    // Handle custom events
+    socket.on("sendMessage", ({ receiverId, message }) => {
+      const receiverSocketId = userSocketMap[receiverId];
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("newMessage", message);
+      }
+    });
+    
     socket.on("disconnect", () => {
-        console.log("User disconnected", socket.id);
-    })
-})
+      console.log("A user disconnected", socket.id);
+      // Find and remove the disconnected user
+      const userIdToRemove = Object.keys(userSocketMap).find(
+        key => userSocketMap[key] === socket.id
+      );
+      
+      if (userIdToRemove) {
+        delete userSocketMap[userIdToRemove];
+        io.emit("getOnlineUsers", Object.keys(userSocketMap));
+      }
+    });
+  });
 
-export { io, app, server };
+  return io;
+};
+
+// Function to get receiver socket ID
+const getReceiverSocketId = (userId) => {
+  return userSocketMap[userId];
+};
+
+// Export everything needed
+export { io, initializeSocket, getReceiverSocketId };

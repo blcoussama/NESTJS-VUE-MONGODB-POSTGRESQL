@@ -7,7 +7,10 @@ import { Provider } from 'react-redux'
 import { PersistGate } from 'redux-persist/integration/react'
 import store, { persistor } from './store/store'
 import { ThemeProvider } from './context/ThemeProvider'
-import SocketProvider from './context/SocketProvider'
+import { initializeStoreReferences } from './utils/storeInitializer'
+
+// Set store reference for SocketManager
+initializeStoreReferences(store);
 
 createRoot(document.getElementById('root')).render(
   <Provider store={store}>
@@ -15,9 +18,7 @@ createRoot(document.getElementById('root')).render(
       <PersistGate loading={null} persistor={persistor}>
         <BrowserRouter>
           <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-            <SocketProvider>
               <App />
-            </SocketProvider>
           </ThemeProvider>
         </BrowserRouter>
       </PersistGate>
