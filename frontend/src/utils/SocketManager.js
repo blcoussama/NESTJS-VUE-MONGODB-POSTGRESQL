@@ -1,32 +1,28 @@
-// frontend/src/utils/SocketManager.js
 import { io } from 'socket.io-client';
-// Import these at the top level, but don't use them until store is set
 import { setOnlineUsers } from '../store/authSlice';
-import { addMessage, removeMessage } from '../store/chatSlice';
+import { addMessage, fetchUsers, removeMessage, updateMessagesReadStatus } from '../store/chatSlice';
+import { requestNotificationPermission, showNotification } from './NotificationManager';
 
-// Define your base URL
 const BASE_URL = import.meta.env.MODE === "development" ? "http://localhost:4000" : "/";
 
 let socket = null;
 let storeRef = null;
 
-// Function to set store reference from outside (will be called after store is created)
 export const setStoreReference = (store) => {
   storeRef = store;
 };
 
-// Initialize socket connection
 export const initializeSocket = (userId) => {
-  if (socket) return socket; // Return existing socket if already connected
+  if (socket) return socket;
   
   socket = io(BASE_URL, {
     query: { userId },
     withCredentials: true
   });
   
-  // Set up event listeners
   socket.on('connect', () => {
     console.log('Socket connected with ID:', socket.id);
+    requestNotificationPermission(); // Request permission on connect
   });
   
   socket.on('connect_error', (error) => {
@@ -41,13 +37,49 @@ export const initializeSocket = (userId) => {
   
   socket.on('newMessage', (newMessage) => {
     if (storeRef) {
+      const currentUserId = storeRef.getState().auth.user?._id;
+      const isChatPage = window.location.pathname.startsWith('/chat');
+      
       storeRef.dispatch(addMessage(newMessage));
+
+      // Show notification if the user is not on the chat page or not chatting with the sender
+      if (
+        newMessage.receiverId === currentUserId &&
+        (!isChatPage || window.location.pathname !== `/chat/${newMessage.senderId}`)
+      ) {
+        showNotification(
+          "New Message",
+          {
+            body: newMessage.text || "You received a new image message",
+            icon: "/path/to/icon.png", // Replace with your app icon path
+          },
+          () => {
+            window.location.href = `/chat/${newMessage.senderId}`;
+          }
+        );
+      }
     }
   });
   
   socket.on('messageDeleted', (messageId) => {
     if (storeRef) {
       storeRef.dispatch(removeMessage(messageId));
+    }
+  });
+  
+  socket.on('messagesReadByReceiver', (receiverId) => {
+    if (storeRef) {
+      const currentUserId = storeRef.getState().auth.user?._id;
+      if (currentUserId) {
+        storeRef.dispatch(updateMessagesReadStatus({ receiverId, currentUserId }));
+      }
+    }
+  });
+
+  // eslint-disable-next-line no-unused-vars
+  socket.on('refreshSidebar', ({ senderId }) => {
+    if (storeRef) {
+      storeRef.dispatch(fetchUsers());
     }
   });
   

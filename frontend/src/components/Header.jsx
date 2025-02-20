@@ -52,7 +52,7 @@ const Header = () => {
               {/* Profile Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Avatar className="cursor-pointer border-2 w-12 h-12">
+                  <Avatar className="cursor-pointer border-2 dark:border-gray-600 w-14 h-14">
                     {profilePicture ? (
                       <AvatarImage src={profilePicture} alt="Profile" />
                     ) : (

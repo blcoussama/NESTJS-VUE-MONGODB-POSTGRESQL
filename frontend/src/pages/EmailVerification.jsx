@@ -124,7 +124,7 @@ const EmailVerification = () => {
                 onChange={(e) => handleChange(index, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(index, e)}
                 onPaste={(e) => handlePaste(index, e)}
-                className="w-12 h-12 text-center text-2xl font-bold"
+                className="w-12 h-12 text-center font-bold"
               />
             ))}
           </div>

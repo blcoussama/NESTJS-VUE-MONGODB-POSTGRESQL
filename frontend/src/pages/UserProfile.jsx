@@ -153,6 +153,17 @@ const UserProfile = () => {
             </Button>
           </div>
         )}
+        {currentUser && currentUser._id !== id && (
+          <div className="text-right mb-4">
+            <Button
+              onClick={() => navigate(`/chat/${id}`)}
+              variant="outline"
+              className="cursor-pointer"
+            >
+              Message
+            </Button>
+          </div>
+        )}
 
         {/* Profile Header */}
         <div className="flex items-center gap-4 mb-6">

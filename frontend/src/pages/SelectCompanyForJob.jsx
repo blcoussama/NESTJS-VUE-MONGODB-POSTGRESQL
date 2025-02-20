@@ -48,19 +48,10 @@ const SelectCompanyForJob = () => {
               {companies.map((company) => (
                 <Card
                   key={company._id}
-                  className="cursor-pointer hover:shadow-xl transition-shadow bg-gradient-to-br from-background to-muted"
+                  className="cursor-pointer hover:shadow-xl transition-shadow bg-gradient-to-br from-background to-muted p-4"
                   onClick={() => handleCompanySelect(company._id)}
                 >
-                  <div className="">
-                    {company.logo && (
-                      <div className="">
-                        <img
-                          src={company.logo}
-                          alt={`${company.name} logo`}
-                          className="w-32 h-20 rounded-lg px-4 object-contain"
-                        />
-                      </div>
-                    )}
+                  <div className="flex justify-between">
                     <div className="p-6 pt-3">
                         <h3 className="text-3xl font-semibold">
                             {company.name}
@@ -69,20 +60,28 @@ const SelectCompanyForJob = () => {
                             {company.location && (
                                 <div className="flex items-center gap-1">
                                 <MapPin className="h-4 w-4" />
-                                <span className="text-sm">{company.location}</span>
+                                <span className="text-base">{company.location}</span>
                                 </div>
                             )}
                             {company.website && (
                                 <div className="flex items-center gap-1">
                                 <Globe className="h-4 w-4" />
-                                <span className="text-sm">
+                                <span className="text-base">
                                     {company.website}
                                 </span>
                                 </div>
                             )}
                         </div>
                     </div>
-                  
+                            {company.logo && (
+                      <div className="mt-2">
+                        <img
+                          src={company.logo}
+                          alt={`${company.name} logo`}
+                          className="w-32 h-20 rounded-lg px-4 object-contain"
+                        />
+                      </div>
+                    )}
                   </div>
                 </Card>
               ))}

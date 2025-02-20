@@ -64,32 +64,31 @@ const ApplyJob = () => {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-
-    // Clear previous errors
     let errors = {}
-
     if (!formData.experienceYears) {
       errors.experienceYears = 'Please provide your years of experience.'
     }
     if (!formData.experienceLevel) {
       errors.experienceLevel = 'Please select your experience level.'
     }
-
-    // If errors exist, update state and halt submission
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors)
       return
     }
     setFormErrors({})
-
     const applicationData = {
       experienceYears: Number(formData.experienceYears),
       experienceLevel: formData.experienceLevel,
     }
-    dispatch(applyJob({ jobId, applicationData }))
-    navigate('/candidate/applications')
+    try {
+      const result = await dispatch(applyJob({ jobId, applicationData })).unwrap()
+      console.log('Application Result:', result)
+      navigate('/candidate/applications')
+    } catch (err) {
+      console.error('Apply Error:', err)
+    }
   }
 
   return (

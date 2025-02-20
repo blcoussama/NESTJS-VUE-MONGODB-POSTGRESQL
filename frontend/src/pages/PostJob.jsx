@@ -151,7 +151,7 @@ const PostJob = () => {
 
   if (loading && !job) {
     return (
-      <div className="flex justify-center items-center">
+      <div className="flex justify-center items-center h-80">
         <LoadingSpinner />
       </div>
     )

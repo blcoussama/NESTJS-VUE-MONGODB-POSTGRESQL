@@ -149,7 +149,7 @@ const JobDetails = () => {
     });
 
   return (
-    <div className="container px-4">
+    <div className="container px-4 mt-10">
       <Button variant="secondary" size="lg" asChild className="mb-6">
         <Link to="/jobs" className="flex items-center text-[17px]">
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Job Listings
@@ -170,9 +170,10 @@ const JobDetails = () => {
                 </Badge>
               </CardTitle>
               <CardDescription className="text-lg">
-                <Link to={`/company/${job.company?._id}`} className="flex items-center hover:underline">  
+                <Link to={`/company/${job.company?._id}`} className="flex items-center">  
                   <Building2 className="mr-3 h-6 w-6 text-gray-600 dark:text-gray-300" />
-                  <Button variant="secondary" className="cursor-pointer">
+                  At
+                  <Button variant="secondary" className="cursor-pointer ml-3 hover:underline">
                     <p className="text-xl capitalize">{job.company?.name}</p>
                   </Button>
                 </Link>

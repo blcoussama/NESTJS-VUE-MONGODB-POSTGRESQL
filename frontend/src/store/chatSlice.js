@@ -1,13 +1,14 @@
 // src/store/chatSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axiosInstance from '../utils/axiosInstance';
+import { emitMessage } from '../utils/SocketManager';
 
 // Async thunk to fetch all users for the sidebar
 export const fetchUsers = createAsyncThunk(
   'chat/fetchUsers',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.get('/api/message/users');
+      const response = await axiosInstance.get('/message/users');
       return response.data;
     } catch (error) {
       return rejectWithValue(
@@ -22,7 +23,7 @@ export const fetchMessages = createAsyncThunk(
   'chat/fetchMessages',
   async ({ userToChatId }, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.get(`/api/message/${userToChatId}`);
+      const response = await axiosInstance.get(`/message/${userToChatId}`);
       return response.data;
     } catch (error) {
       return rejectWithValue(
@@ -37,18 +38,14 @@ export const sendMessage = createAsyncThunk(
   'chat/sendMessage',
   async ({ receiverId, text, image }, { rejectWithValue }) => {
     try {
-      // Create a FormData instance to support file uploads (if an image is provided)
       const formData = new FormData();
       if (text) formData.append('text', text);
-      if (image) formData.append('image', image);
+      if (image) formData.append('image', image); // Ensure the key is "image"
+
+      // Let axios set the correct Content-Type with boundary automatically
+      const response = await axiosInstance.post(`/message/send/${receiverId}`, formData);
       
-      const response = await axiosInstance.post(`/api/message/send/${receiverId}`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
-      
-      // The socket notification is handled by the server side
+      // The server emits the socket notification
       return response.data.data;
     } catch (error) {
       return rejectWithValue(
@@ -58,12 +55,31 @@ export const sendMessage = createAsyncThunk(
   }
 );
 
+
+// New thunk to mark messages as read
+export const markMessagesAsRead = createAsyncThunk(
+  'chat/markMessagesAsRead',
+  async ({ senderId }, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.put(`/message/read/${senderId}`);
+      // Emit socket event to inform sender
+      emitMessage('markMessagesAsRead', { senderId });
+      return { senderId, ...response.data };
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || error.message
+      );
+    }
+  }
+);
+
+
 // Async thunk to delete a message
 export const deleteMessage = createAsyncThunk(
   'chat/deleteMessage',
   async (messageId, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.delete(`/api/message/delete/${messageId}`);
+      const response = await axiosInstance.delete(`/message/delete/${messageId}`);
       // Server will emit socket event for real-time updates
       return { messageId, ...response.data };
     } catch (error) {
@@ -128,6 +144,19 @@ const chatSlice = createSlice({
         }
         return msg;
       });
+    },
+    updateMessagesReadStatus(state, action) {
+      const { receiverId, currentUserId } = action.payload;
+      state.messages = state.messages.map(msg => {
+        if (
+          msg.senderId === currentUserId &&
+          msg.receiverId === receiverId &&
+          !msg.read
+        ) {
+          return { ...msg, read: true };
+        }
+        return msg;
+      });
     }
   },
   extraReducers: (builder) => {
@@ -164,14 +193,40 @@ const chatSlice = createSlice({
       .addCase(sendMessage.pending, (state) => {
         state.sending = true;
         state.sendError = null;
+        // Don't set loading=true here to avoid flickering
       })
       .addCase(sendMessage.fulfilled, (state, action) => {
         state.sending = false;
-        state.messages.push(action.payload);
+        const messageExists = state.messages.some(msg => msg._id === action.payload._id);
+        if (!messageExists) {
+          state.messages.push(action.payload);
+        }
+        // Trigger a re-fetch of the sidebar users
+        state.userLoading = true; // Optional: Indicate loading state
       })
       .addCase(sendMessage.rejected, (state, action) => {
         state.sending = false;
         state.sendError = action.payload;
+      })
+
+      // Handle markMessagesAsRead lifecycle
+      .addCase(markMessagesAsRead.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(markMessagesAsRead.fulfilled, (state, action) => {
+        state.loading = false;
+        const { senderId } = action.payload;
+        // Update the read status of messages from this sender
+        state.messages = state.messages.map(msg => {
+          if (msg.senderId === senderId && !msg.read) {
+            return { ...msg, read: true };
+          }
+          return msg;
+        })
+      })
+      .addCase(markMessagesAsRead.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       })
       
       // Handle deleteMessage lifecycle
@@ -183,12 +238,12 @@ const chatSlice = createSlice({
         state.loading = false;
         state.messages = state.messages.filter(
           (msg) => msg._id !== action.payload.messageId
-        );
+        )
       })
       .addCase(deleteMessage.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-      });
+      })
   },
 });
 
@@ -198,7 +253,7 @@ export const {
   removeMessage,
   updateMessage, 
   setSelectedUser,
-  markMessagesAsRead
+  updateMessagesReadStatus
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

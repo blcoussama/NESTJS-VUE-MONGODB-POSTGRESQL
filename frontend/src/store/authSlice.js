@@ -30,11 +30,9 @@ export const disconnectSocket = createAsyncThunk(
 // Original auth thunks - keep these as they are
 export const signUp = createAsyncThunk(
   'auth/signUp',
-  async ({ email, password, username, role }, { rejectWithValue, dispatch }) => {
+  async ({ email, password, username, role }, { rejectWithValue }) => {
     try {
       const response = await axiosInstance.post('/auth/signup', { email, password, username, role });
-      // Connect socket after successful signup
-      dispatch(connectSocket());
       return response.data;
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
@@ -44,9 +42,11 @@ export const signUp = createAsyncThunk(
 
 export const verifyEmail = createAsyncThunk(
   'auth/verifyEmail',
-  async ({ code }, { rejectWithValue }) => {
+  async ({ code }, { rejectWithValue, dispatch }) => {
     try {
       const response = await axiosInstance.post('/auth/verify-email', { code });
+      // Connect socket after successful signup
+      dispatch(connectSocket());
       return response.data;
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
@@ -84,11 +84,11 @@ export const checkAuth = createAsyncThunk(
 
 export const login = createAsyncThunk(
   'auth/login',
-  async ({ email, password }, { rejectWithValue, dispatch }) => {
+  async ({ email, password }, { rejectWithValue }) => {
     try {
       const response = await axiosInstance.post('/auth/login', { email, password });
       // Connect socket after successful login
-      dispatch(connectSocket());
+      // dispatch(connectSocket());
       return response.data;
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
@@ -130,6 +130,19 @@ export const resetPassword = createAsyncThunk(
       return response.data.message;
     } catch (error) {
       return rejectWithValue(getErrorMessage(error));
+    }
+  }
+);
+
+// Add this thunk to authSlice
+export const getUserById = createAsyncThunk(
+  'auth/getUserById',
+  async (userId, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.get(`/user/${userId}`);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
     }
   }
 );

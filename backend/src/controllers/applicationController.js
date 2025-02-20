@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { Application } from "../models/applicationModel.js";
 import { Job } from "../models/jobModel.js";
 import { User } from "../models/userModel.js";
+import { SendApplicationAcceptedEmail, SendApplicationRejectedEmail } from "../mails/emailApi.js";
 
 export const applyForJob = async (req, res) => {
   try {
@@ -195,8 +196,13 @@ export const acceptApplication = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid application ID format." });
     }
 
-    // Find the application and populate its job details
-    const application = await Application.findById(id).populate("job");
+    // Find the application and populate job (with company) and applicant
+    const application = await Application.findById(id)
+      .populate({
+        path: "job",
+        populate: { path: "company" }
+      })
+      .populate("applicant");
     if (!application) {
       return res.status(404).json({ success: false, message: "Application not found." });
     }
@@ -208,33 +214,61 @@ export const acceptApplication = async (req, res) => {
 
     // Ensure the application is still pending
     if (["accepted", "rejected", "withdrawn"].includes(application.status)) {
-        return res.status(400).json({ 
-            success: false, 
-            message: `This application has already been ${application.status}.` 
-        });
+      return res.status(400).json({
+        success: false,
+        message: `This application has already been ${application.status}.`
+      });
     }
 
     // Update the selected application to "accepted"
     application.status = "accepted";
     await application.save();
 
-    // Automatically reject all other pending applications for the same job
-    await Application.updateMany(
-      { job: application.job._id, _id: { $ne: application._id }, status: "pending" },
-      { status: "rejected" }
-    );
+    // Send acceptance email
+    const applicantName = `${application.applicant.profile.firstName} ${application.applicant.profile.lastName}`;
+    const jobTitle = application.job.title;
+    const companyName = application.job.company.name;
+    try {
+      await SendApplicationAcceptedEmail(application.applicant.email, applicantName, jobTitle, companyName);
+    } catch (emailError) {
+      console.error("Failed to send acceptance email:", emailError.message);
+      // Continue execution even if email fails, logging the error
+    }
 
-    // NEW: Close the job posting after accepting an application
+    // Find and reject all other pending applications for the same job
+    const pendingApplications = await Application.find({
+      job: application.job._id,
+      _id: { $ne: application._id },
+      status: "pending"
+    }).populate("applicant");
+
+    if (pendingApplications.length > 0) {
+      const applicationIds = pendingApplications.map(app => app._id);
+      await Application.updateMany(
+        { _id: { $in: applicationIds } },
+        { status: "rejected" }
+      );
+
+      // Send rejection emails to other applicants
+      for (const app of pendingApplications) {
+        const rejectApplicantName = `${app.applicant.profile.firstName} ${app.applicant.profile.lastName}`;
+        try {
+          await SendApplicationRejectedEmail(app.applicant.email, rejectApplicantName, jobTitle, companyName);
+        } catch (emailError) {
+          console.error("Failed to send rejection email:", emailError.message);
+          // Continue execution, logging the error
+        }
+      }
+    }
+
+    // Close the job posting
     const updatedJob = await Job.findByIdAndUpdate(
       application.job._id,
       { isOpen: false },
       { new: true }
     );
-
-    // Optional error logging if job update fails
     if (!updatedJob) {
       console.error("Failed to close job after accepting application");
-      // We don't return an error here since the main operation succeeded
     }
 
     return res.status(200).json({
@@ -260,8 +294,13 @@ export const rejectApplication = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid application ID format." });
     }
 
-    // Find the application and populate its job details
-    const application = await Application.findById(id).populate("job");
+    // Find the application and populate job (with company) and applicant
+    const application = await Application.findById(id)
+      .populate({
+        path: "job",
+        populate: { path: "company" }
+      })
+      .populate("applicant");
     if (!application) {
       return res.status(404).json({ success: false, message: "Application not found." });
     }
@@ -279,6 +318,17 @@ export const rejectApplication = async (req, res) => {
     // Update the selected application to "rejected"
     application.status = "rejected";
     await application.save();
+
+    // Send rejection email
+    const applicantName = `${application.applicant.profile.firstName} ${application.applicant.profile.lastName}`;
+    const jobTitle = application.job.title;
+    const companyName = application.job.company.name;
+    try {
+      await SendApplicationRejectedEmail(application.applicant.email, applicantName, jobTitle, companyName);
+    } catch (emailError) {
+      console.error("Failed to send rejection email:", emailError.message);
+      // Continue execution, logging the error
+    }
 
     return res.status(200).json({
       success: true,

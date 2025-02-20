@@ -1,4 +1,4 @@
-import { PASSWORD_RESET_REQUEST_TEMPLATE, PASSWORD_RESET_SUCCESS_TEMPLATE, VERIFICATION_EMAIL_TEMPLATE } from "./emailTemplates.js"
+import { PASSWORD_RESET_REQUEST_TEMPLATE, PASSWORD_RESET_SUCCESS_TEMPLATE, VERIFICATION_EMAIL_TEMPLATE, APPLICATION_ACCEPTED_TEMPLATE, APPLICATION_REJECTED_TEMPLATE } from "./emailTemplates.js"
 import { sgMail, sender } from './sendgridConfig.js';
 
 
@@ -76,5 +76,47 @@ export const SendPasswordResetSuccessEmail = async (email) => {
     } catch (error) {
         console.error("Error sending password reset success email", error);
         throw new Error(`Error sending password reset success email: ${error.message}`);
+    }
+};
+
+export const SendApplicationAcceptedEmail = async (email, applicantName, jobTitle, companyName) => {
+    const msg = {
+        to: email,
+        from: sender,
+        subject: 'Your Application Has Been Accepted',
+        html: APPLICATION_ACCEPTED_TEMPLATE
+            .replace("{applicantName}", applicantName)
+            .replace("{jobTitle}", jobTitle)
+            .replace("{companyName}", companyName),
+        category: "Application Accepted",
+    };
+
+    try {
+        await sgMail.send(msg);
+        console.log(`Application accepted email sent to: ${email}`);
+    } catch (error) {
+        console.error("Error sending application accepted email", error);
+        throw new Error(`Error sending application accepted email: ${error.message}`);
+    }
+};
+
+export const SendApplicationRejectedEmail = async (email, applicantName, jobTitle, companyName) => {
+    const msg = {
+        to: email,
+        from: sender,
+        subject: 'Update on Your Application',
+        html: APPLICATION_REJECTED_TEMPLATE
+            .replace("{applicantName}", applicantName)
+            .replace("{jobTitle}", jobTitle)
+            .replace("{companyName}", companyName),
+        category: "Application Rejected",
+    };
+
+    try {
+        await sgMail.send(msg);
+        console.log(`Application rejected email sent to: ${email}`);
+    } catch (error) {
+        console.error("Error sending application rejected email", error);
+        throw new Error(`Error sending application rejected email: ${error.message}`);
     }
 };

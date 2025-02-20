@@ -3,15 +3,44 @@ import { User } from "../models/userModel.js"
 import cloudinary from "../utils/Cloudinary.js";
 import { io, getReceiverSocketId } from "../utils/Socket.io.js";
 
+// backend/src/controllers/messageController.js - updated function
 export const getUsersForSidebar = async (req, res) => {
-    try {
-        const loggedInUserId = req.user.userId;
-        const users = await User.find({ _id: { $ne: loggedInUserId } }).select("-password");
-        res.status(200).json(users);
-    } catch (error) {
-        console.error("Error in getUsersForSidebar: ", error.message);
-        res.status(500).json({ success: false, message: "Error in getUsersForSidebar" });
-    }
+  try {
+    const loggedInUserId = req.user.userId;
+    
+    // Find all messages where the logged-in user is involved
+    const messages = await Message.find({
+      $or: [
+        { senderId: loggedInUserId },
+        { receiverId: loggedInUserId }
+      ]
+    });
+    
+    // Extract unique user IDs the logged-in user has chatted with
+    const chatUserIds = new Set();
+    
+    messages.forEach(msg => {
+      if (msg.senderId.toString() !== loggedInUserId) {
+        chatUserIds.add(msg.senderId.toString());
+      }
+      if (msg.receiverId.toString() !== loggedInUserId) {
+        chatUserIds.add(msg.receiverId.toString());
+      }
+    });
+    
+    // Convert Set to Array for the query
+    const userIdArray = Array.from(chatUserIds);
+    
+    // Fetch user details for the sidebar
+    const users = await User.find({ 
+      _id: { $in: userIdArray }
+    }).select("-password");
+    
+    res.status(200).json(users);
+  } catch (error) {
+    console.error("Error in getUsersForSidebar: ", error.message);
+    res.status(500).json({ success: false, message: "Error in getUsersForSidebar" });
+  }
 };
 
 export const getMessages = async (req, res) => {
@@ -95,10 +124,12 @@ export const sendMessages = async (req, res) => {
 
     await newMessage.save();
     
-    // Socket.IO notification for real-time updates
+    // Socket.IO notification for real-time message updates
     const receiverSocketId = getReceiverSocketId(receiverId);
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("newMessage", newMessage);
+      // Emit event to refresh the receiver's sidebar
+      io.to(receiverSocketId).emit("refreshSidebar", { senderId });
     }
 
     res.status(201).json({
@@ -112,6 +143,37 @@ export const sendMessages = async (req, res) => {
       success: false,
       message: "Error sending message",
       error: error.message
+    });
+  }
+};
+
+// Add this function to mark messages as read
+export const markMessagesAsRead = async (req, res) => {
+  try {
+    const { id: senderId } = req.params;
+    const receiverId = req.user.userId;
+
+    // Update messages
+    const result = await Message.updateMany(
+      { senderId, receiverId, read: false },
+      { $set: { read: true } }
+    );
+    
+    // Notify sender via socket
+    const senderSocketId = getReceiverSocketId(senderId);
+    if (senderSocketId) {
+      io.to(senderSocketId).emit("messagesReadByReceiver", receiverId); // Correct event name
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      message: `Marked ${result.modifiedCount} messages as read` 
+    });
+  } catch (error) {
+    console.error("Error marking messages as read:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Error marking messages as read" 
     });
   }
 };

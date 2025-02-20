@@ -26,8 +26,8 @@ import UserProfile from './pages/UserProfile';
 import CandidateApplications from './pages/CandidateApplications';
 import SelectCompanyForJob from './pages/SelectCompanyForJob';
 import SavedJobs from './pages/SavedJobs';
-// import Chat from './pages/Chat';
 import AppLayout from './layout/AppLayout';
+import Chat from './pages/Chat';
 
 // Protect routes that require authentication
 const ProtectRoute = ({ children, allowedRoles }) => {
@@ -125,6 +125,7 @@ function App() {
   return (
           <AppLayout>
             <Routes>
+              
               {/* Public routes */}
               <Route path="/" element={<RedirectAuthenticatedUsers><OnBoarding /></RedirectAuthenticatedUsers>} />
               <Route path="/signup" element={<RedirectAuthenticatedUsers><SignUp /></RedirectAuthenticatedUsers>} />
@@ -155,10 +156,10 @@ function App() {
               <Route path="/apply/:jobId" element={<ProtectRoute allowedRoles={['candidate']}><ApplyJob /></ProtectRoute>} />
               <Route path="/candidate/applications" element={<ProtectRoute allowedRoles={['candidate']}><CandidateApplications /></ProtectRoute>} />
 
-              {/* Chat route: userToChatId is provided in the URL */}
-              {/* <Route path="/chat/:userToChatId" element={<ProtectRoute><Chat /></ProtectRoute>} /> */}
+              <Route path="/chat/:userToChatId" element={<ProtectRoute><Chat /></ProtectRoute>} />
 
               <Route path="*" element={<Navigate to="/" replace />} />
+
             </Routes>
           </AppLayout>
   );

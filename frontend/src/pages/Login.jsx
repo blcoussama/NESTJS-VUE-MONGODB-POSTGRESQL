@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Mail, Lock, Loader } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { clearError, clearLoading, login } from "../store/authSlice";
+import { clearError, clearLoading, connectSocket, login } from "../store/authSlice";
 
 // Shadcn UI Components
 import { CardHeader, CardContent } from "@/components/ui/card";
@@ -27,6 +27,7 @@ const Login = () => {
     e.preventDefault();
     try {
       await dispatch(login({ email, password })).unwrap();
+      await dispatch(connectSocket()).unwrap();
       navigate("/");
     } catch (err) {
       console.error("Unexpected error during login:", err);

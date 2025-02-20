@@ -231,8 +231,8 @@ const JobListing = () => {
           ) : error ? (
             <div className="text-center text-red-600 p-4">{error}</div>
           ) : jobs.length === 0 ? (
-            <div className="text-center p-4">
-              No jobs found matching your criteria
+            <div className="text-center p-4 text-lg">
+              No jobs found matching your criteria.
             </div>
           ) : (
             <div className="">
@@ -262,11 +262,11 @@ const JobListing = () => {
                         <img
                           src={job.company?.logo}
                           alt={`${job.company?.name} logo`}
-                          className="h-12 w-24 object-contain"
+                          className="h-30 w-40 object-contain mr-5"
                         />
                       ) : (
-                        <div className="flex items-center justify-center rounded bg-gray-200/50 border border-gray-200 p-2 dark:bg-gray-700/20 dark:border-gray-600 shadow-md">
-                          <span className="text-xl uppercase font-semibold text-gray-400 opacity-75 dark:text-gray-300">
+                        <div className="flex items-center justify-center rounded bg-gray-200/50 border border-gray-200 p-10 dark:bg-gray-700/20 dark:border-gray-600 shadow-md">
+                          <span className="text-3xl uppercase font-semibold text-gray-400 opacity-75 dark:text-gray-300">
                             No Logo
                           </span>
                         </div>

@@ -33,6 +33,13 @@ const initializeSocket = (server) => {
       }
     });
     
+    socket.on("markMessagesAsRead", ({ senderId }) => {
+      const senderSocketId = userSocketMap[senderId];
+      if (senderSocketId) {
+        io.to(senderSocketId).emit("messagesReadByReceiver", socket.handshake.query.userId);
+      }
+    });
+    
     socket.on("disconnect", () => {
       console.log("A user disconnected", socket.id);
       // Find and remove the disconnected user
