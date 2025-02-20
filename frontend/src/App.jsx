@@ -27,7 +27,7 @@ import CandidateApplications from './pages/CandidateApplications';
 import SelectCompanyForJob from './pages/SelectCompanyForJob';
 import SavedJobs from './pages/SavedJobs';
 import Chat from './pages/Chat';
-import AppLayout from './Layout/AppLayout';
+import AppLayout from './layout/AppLayout';
 
 // Protect routes that require authentication
 const ProtectRoute = ({ children, allowedRoles }) => {
