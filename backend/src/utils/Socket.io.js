@@ -1,6 +1,8 @@
 // backend/src/utils/Socket.io.js
 import { Server } from "socket.io";
 
+const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
+
 // Map to track online users
 const userSocketMap = {}; // {userId: socketId}
 
@@ -11,7 +13,7 @@ const initializeSocket = (server) => {
   // Initialize Socket.io with the HTTP server
   io = new Server(server, {
     cors: {
-      origin: ["http://localhost:5173"],
+      origin: [CLIENT_URL],
       credentials: true
     }
   });

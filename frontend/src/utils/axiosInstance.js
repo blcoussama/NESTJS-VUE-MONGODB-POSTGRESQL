@@ -1,10 +1,8 @@
 import axios from 'axios';
 
-// In Vite, you can use `import.meta.env.DEV` to check if you're in development mode.
-// (Note: if you want to use custom environment variables, prefix them with VITE_ in your .env file.)
-export const API_URL = import.meta.env.DEV
-  ? "http://localhost:4000/api"
-  : "/api";                     // Production: relative URL
+export const API_URL = import.meta.env.MODE === "development" 
+    ? "http://localhost:4000/api" 
+    : "/api";
 
 const axiosInstance = axios.create({
   baseURL: API_URL,

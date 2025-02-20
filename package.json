@@ -1,0 +1,23 @@
+{
+  "name": "profyle",
+  "version": "1.0.0",
+  "main": "index.js",
+  "devDependencies": {},
+  "scripts": {
+    "start": "npm run start --prefix backend",
+    "build": "npm install & npm install --prefix frontend && npm run build --prefix frontend"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/blcoussama/PROFYLE.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/blcoussama/PROFYLE/issues"
+  },
+  "homepage": "https://github.com/blcoussama/PROFYLE#readme",
+  "description": ""
+}

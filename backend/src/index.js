@@ -16,12 +16,21 @@ import { initializeSocket } from "./utils/Socket.io.js";
 
 dotenv.config()
 
-const PORT = process.env.PORT || 5000;
-
 // Create Express app
 const app = express();
+
+const PORT = process.env.PORT || 5000;
+
 // Create HTTP server with Express app
 const server = http.createServer(app);
+
+const __dirname = path.resolve();
+
+// Validate required environment variables
+if (!process.env.MONGO_URI || !process.env.JWT_SECRET) {
+    console.error("Missing required environment variables!");
+    process.exit(1);
+}
 
 // Initialize middleware
 app.use(cors({ origin: "http://localhost:5173", credentials: true }));
@@ -40,19 +49,13 @@ app.use("/api/application", ApplicationRoutes)
 app.use("/api/saved-job", savedJobRoutes)
 app.use("/api/message", MessageRoutes)
 
-// Serve static assets in production
+// Serve frontend in production
 if (process.env.NODE_ENV === "production") {
-  app.use(express.static(path.join(__dirname, "../frontend/dist")));
+    app.use(express.static(path.join(__dirname, "/frontend/dist")));
 
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "../frontend", "dist", "index.html"));
-  });
-}
-
-// Validate required environment variables
-if (!process.env.MONGO_URI || !process.env.JWT_SECRET) {
-    console.error("Missing required environment variables!");
-    process.exit(1);
+    app.get("*", (req, res) => {
+        res.sendFile(path.resolve(__dirname, "frontend", "dist", "index.html"));
+    }); 
 }
 
 // Start the server only after connecting to the database
