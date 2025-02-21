@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { logout } from '../store/authSlice'
-import { ThemeToggle } from './ThemeToggle'
+import { ThemeSelect } from './ThemeToggle'
 import { Button } from './ui/button'
 import {
   DropdownMenu,
@@ -124,7 +124,7 @@ const Header = () => {
             </div>
           )}
           {/* Theme Toggle */}
-          <ThemeToggle />
+          <ThemeSelect />
         </div>
       </div>
     </header>
