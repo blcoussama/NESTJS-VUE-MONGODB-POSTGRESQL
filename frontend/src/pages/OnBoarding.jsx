@@ -49,7 +49,7 @@ const OnBoarding = () => {
             
           </CardHeader>
           <CardContent className="flex items-center justify-between gap-10">
-            <Label htmlFor="recruiter" className="text-xl">I want to hire talent</Label>
+            <Label htmlFor="recruiter" className="text-xl">I want to hire talents</Label>
             {/* Always visible radio button */}
             <div className="w-10 h-10 mt-2 border-2 border-primary rounded-full flex items-center justify-center">
               {selectedRole === "recruiter" && (
