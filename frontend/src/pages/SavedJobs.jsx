@@ -70,34 +70,34 @@ const SavedJobs = () => {
             return (
               <Card
                 key={job._id}
-                className="relative flex flex-col hover:shadow-md transition-shadow duration-200"
+                className="flex flex-col hover:shadow-md transition-shadow duration-200"
               >
-                {/* Unsave Button */}
-                <Button
-                    variant="secondary"
-                    size="saveButtonJobLiting"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        handleUnsave(job._id);
-                    }}
-                    disabled={removingJobs.has(job._id)}
-                    className="absolute top-4 right-4 rounded-md transition-colors duration-200 cursor-pointer"
-                    title="Remove from saved jobs"
-                    >
-                    <BookmarkIcon
-                        size={24}
-                        style={{ width: '24px', height: '24px' }}
-                        className={`h-10 w-10 ${
-                        removingJobs.has(job._id)
-                            ? "fill-primary text-primary" // Optionally, you can use a muted style while removing
-                            : "fill-primary text-primary"
-                        }`}
-                    />
-                </Button>
 
                 <CardHeader className="px-6 pt-6">
-                  <CardTitle className="text-2xl font-semibold">
+                  <CardTitle className="flex text-2xl font-semibold gap-3">
                     {job.title}
+                    {/* Unsave Button */}
+                    <Button
+                        variant="secondary"
+                        size="saveButtonJobLiting"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleUnsave(job._id);
+                        }}
+                        disabled={removingJobs.has(job._id)}
+                        className="top-4 right-4 rounded-md transition-colors duration-200 cursor-pointer"
+                        title="Remove from saved jobs"
+                        >
+                        <BookmarkIcon
+                            size={24}
+                            style={{ width: '24px', height: '24px' }}
+                            className={`h-10 w-10 ${
+                            removingJobs.has(job._id)
+                                ? "fill-primary text-primary" // Optionally, you can use a muted style while removing
+                                : "fill-primary text-primary"
+                            }`}
+                        />
+                    </Button>
                   </CardTitle>
                   <p className="mt-1 text-lg">
                     At {job.company?.name ? job.company.name : 'Unknown Company'}
