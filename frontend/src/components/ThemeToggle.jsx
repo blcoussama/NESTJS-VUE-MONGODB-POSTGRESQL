@@ -12,12 +12,12 @@ export function ThemeSelect() {
 
   return (
     <Select value={theme} onValueChange={(value) => setTheme(value)}>
-      <SelectTrigger className="w-30 h-10">
+      <SelectTrigger className="w-30 h-10 cursor-pointer">
         <SelectValue placeholder="Select theme" />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="light">Light Mode</SelectItem>
-        <SelectItem value="dark">Dark Mode</SelectItem>
+        <SelectItem value="light" className="cursor-pointer">Light Mode</SelectItem>
+        <SelectItem value="dark" className="cursor-pointer">Dark Mode</SelectItem>
       </SelectContent>
     </Select>
   );

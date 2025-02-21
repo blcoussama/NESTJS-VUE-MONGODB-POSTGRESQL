@@ -58,7 +58,7 @@ const Signup = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="max-w-md mx-auto p-8 rounded-2xl bg-card border shadow-xl"
+      className="max-w-md mx-auto p-8 pt-4 rounded-2xl bg-card border shadow-xl mt-6"
     >
       <CardHeader>
         <h2 className="text-3xl font-bold mb-6 text-center">Create an Account</h2>

@@ -88,7 +88,7 @@ const ForgotPassword = () => {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3 px-4"
+                className="w-full py-3 px-4 cursor-pointer"
                 variant="default"
               >
                 {isLoading ? (
