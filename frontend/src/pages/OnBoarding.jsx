@@ -77,7 +77,7 @@ const OnBoarding = () => {
             {/* Always visible radio button */}
             <div className="w-10 h-10 mt-2 border-2 border-primary rounded-full flex items-center justify-center">
               {selectedRole === "candidate" && (
-                <div className="w-3 h-3 bg-primary rounded-full"></div>
+                <div className="w-7 h-7 bg-primary rounded-full"></div>
               )}
             </div>
           </CardContent>
