@@ -171,6 +171,12 @@ const authSlice = createSlice({
     setOnlineUsers: (state, action) => {
       state.onlineUsers = action.payload;
     },
+    // NEW ACTION:
+    updateUserProfile: (state, action) => {
+      if (state.user) {
+        state.user.profile = { ...state.user.profile, ...action.payload };
+      }
+    },
   },
   extraReducers: (builder) => {
     // Socket connection handlers
@@ -295,5 +301,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearError, clearLoading, setOnlineUsers } = authSlice.actions;
+export const { clearError, clearLoading, setOnlineUsers, updateUserProfile } = authSlice.actions;
 export default authSlice.reducer;

@@ -45,17 +45,17 @@ const CompanyCard = ({ company }) => {
     <Card className="relative hover:shadow-lg transition-shadow">
       <CardHeader className="relative h-32 bg-gradient-to-r from-background to-muted rounded-t-xl">
         {company.logo && (
-          <div className="absolute -bottom-10 left-4">
+          <div className="absolute -bottom-14 left-4">
             <img
               src={company.logo}
               alt={`${company.name} logo`}
-              className="w-36 h-20 rounded-sm border px-4 object-contain"
+              className="w-36 h-26 rounded-sm border px-4 py-3 object-contain"
             />
           </div>
         )}
       </CardHeader>
       <CardContent className={company.logo ? "pt-12" : "pt-4"}>
-        <div className="flex justify-between items-start">
+        <div className="flex justify-between items-start mt-4">
           <CardTitle className="text-2xl font-semibold truncate">
             {company.name}
           </CardTitle>

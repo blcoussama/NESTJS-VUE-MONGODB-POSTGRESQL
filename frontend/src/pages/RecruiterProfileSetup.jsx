@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { User, Upload, Loader, X } from 'lucide-react'
 import axiosInstance from '../utils/axiosInstance'
-import { useSelector } from 'react-redux'
+import { useSelector, useDispatch } from 'react-redux'
 
 // Shadcn UI Components
 import { CardHeader, CardContent } from '@/components/ui/card'
@@ -13,9 +13,12 @@ import { Button } from '@/components/ui/button'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import LoadingSpinner from '@/components/LoadingSpinner'
 
+import { updateUserProfile } from '../store/authSlice';
+
 const RecruiterProfileUpdate = () => {
   const { user: currentUser } = useSelector((state) => state.auth)
   const navigate = useNavigate()
+  const dispatch = useDispatch();
 
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -83,6 +86,8 @@ const RecruiterProfileUpdate = () => {
       })
 
       if (response.data.success) {
+        // Dispatch updateUserProfile with the updated profile data from the response.
+        dispatch(updateUserProfile(response.data.user.profile));
         navigate("/recruiter-companies") // Redirect after update
       }
     } catch (err) {

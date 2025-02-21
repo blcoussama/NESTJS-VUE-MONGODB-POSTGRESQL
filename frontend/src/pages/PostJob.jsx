@@ -171,7 +171,7 @@ const PostJob = () => {
         <CardHeader className="px-6 py-4">
           <div className="flex justify-between items-start">
             <div>
-              <CardTitle className="text-3xl font-semibold text-gray-900 dark:text-gray-100">
+              <CardTitle className="text-3xl font-semibold pt-8 pb-4 text-gray-900 dark:text-gray-100">
                 {companyLoading
                   ? <LoadingSpinner widthClass='6' heightClass='6' />
                   : currentCompany
