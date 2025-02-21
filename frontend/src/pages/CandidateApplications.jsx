@@ -7,6 +7,7 @@ import {
   clearApplicationMessages  // NEW action
 } from '../store/applicationSlice'
 import moment from 'moment'
+import { Building2, MapPin, Calendar } from 'lucide-react'
 
 // Shadcn UI Components
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card'
@@ -83,15 +84,34 @@ const CandidateApplications = () => {
               {candidateApplications.map((application) => (
                 <Card key={application._id} className="shadow rounded">
                   <CardHeader>
-                    <div className="flex justify-between items-center w-full">
+                    <div className="flex justify-between items-start w-full">
                       <div>
                         <h3 className="text-xl font-bold capitalize mb-5">
                           {application.job?.title}
                         </h3>
-                        <p>{application.job?.location}</p>
-                        <p className="text-sm text-gray-400">
-                          Applied {moment(application.createdAt).fromNow()}
-                        </p>
+                        
+                        {application.job?.company && (
+                          <div className="flex items-center text-gray-600 dark:text-gray-300 mb-2">
+                            <Building2 className="mr-2 h-5 w-5 text-gray-600 dark:text-gray-300" />
+                            <span className="text-base">
+                              At <span className="font-medium capitalize text-lg">{application.job.company.name}</span>
+                            </span>
+                          </div>
+                        )}
+                        
+                        {application.job?.location && (
+                          <div className="flex items-center text-gray-600 dark:text-gray-300 mb-2">
+                            <MapPin className="mr-2 h-5 w-5 text-gray-600 dark:text-gray-300" />
+                            <span>{application.job.location}</span>
+                          </div>
+                        )}
+                        
+                        <div className="flex items-center text-gray-600 dark:text-gray-300 mt-3">
+                          <Calendar className="mr-2 h-5 w-5 text-gray-500 dark:text-gray-400" />
+                          <span className="text-sm">
+                            Applied {moment(application.createdAt).fromNow()}
+                          </span>
+                        </div>
                       </div>
                       <div>
                         <Badge
@@ -112,16 +132,33 @@ const CandidateApplications = () => {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm">
-                      <span className="font-medium text-base">Experience:</span>{' '}
+                    <p className="text-base capitalize">
+                      <span className="font-medium text-lg">Experience : </span>{' '}
                       {application.experienceYears} year
                       {application.experienceYears > 1 ? 's' : ''} ({application.experienceLevel})
                     </p>
-                    <p className="text-sm">
-                      <span className="font-medium text-base">Skills:</span>{' '}
-                      {Array.isArray(application.skills)
-                        ? application.skills.join(', ')
-                        : application.skills}
+                    <p className="text-base capitalize mt-4">
+                      <span className="font-medium text-lg">Skills : </span>{' '}
+                      {Array.isArray(application.skills) ? (
+                        <div className="flex flex-wrap gap-4 capitalize mt-4">
+                          {application.skills.map((skill, index) => (
+                            <Badge
+                              key={index}
+                              variant="pending"
+                              className="px-2 py-1 rounded text-base capitalize font-normal"
+                            >
+                              {skill}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <Badge
+                          variant="pending"
+                          className="px-2 py-1 rounded text-base capitalize font-normal"
+                        >
+                          {application.skills}
+                        </Badge>
+                      )}
                     </p>
                   </CardContent>
                   {application.status === 'pending' && (

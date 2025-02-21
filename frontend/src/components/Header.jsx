@@ -33,8 +33,9 @@ const Header = () => {
   return (
     <header className="sticky top-0 z-50 w-full py-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-        <Link to="/jobs" className="text-2xl font-bold">
-          PROFYLE
+        <Link to="/jobs" className="flex items-center">
+          <img src="/imageLight.png" alt="Profyle Logo" className="w-40 hidden dark:block" />
+          <img src="/image.png" alt="Profyle Logo" className="w-40 block dark:hidden" />
         </Link>
 
         <div className="flex items-center gap-10">
@@ -100,15 +101,15 @@ const Header = () => {
                     <Link to="/saved-jobs">Saved Jobs</Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={handleLogout}
-                      className="pl-4 cursor-pointer !text-red-600 hover:!text-red-600 hover:bg-red-50/10"
-                    >
-                      <div className="flex items-center justify-start w-full">
-                        <span className="text-base !text-red-600">Logout</span>
-                        <LogOut className="ml-2 h-5 w-5 !text-red-600" />
-                      </div>
-                    </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="pl-4 cursor-pointer !text-red-600 hover:!text-red-600 hover:bg-red-50/10"
+                  >
+                    <div className="flex items-center justify-start w-full">
+                      <span className="text-base !text-red-600">Logout</span>
+                      <LogOut className="ml-2 h-5 w-5 !text-red-600" />
+                    </div>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </>

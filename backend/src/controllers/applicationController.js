@@ -353,7 +353,11 @@ export const getCandidateApplications = async (req, res) => {
     }
 
     const applications = await Application.find({ applicant: candidateId })
-      .populate("job", "title description location")
+      .populate({
+        path: "job",
+        select: "title description location company",
+        populate: { path: "company", select: "name" }
+      })
       .sort({ createdAt: -1 });
 
     return res.status(200).json({

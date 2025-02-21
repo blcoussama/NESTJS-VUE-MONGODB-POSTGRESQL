@@ -63,14 +63,19 @@ const JobApplications = ({ jobId, recruiterId }) => {
       <div className="text-red-600 p-4 text-center">Error: {error}</div>
     );
   }
+  
+  // Sort applications by creation date (newest first)
+  const sortedApplications = [...jobApplications].sort((a, b) => 
+    new Date(b.createdAt) - new Date(a.createdAt)
+  );
 
   return (
     <div className="mt-4">
-      {jobApplications.length === 0 ? (
+      {sortedApplications.length === 0 ? (
         <p className="">No applications yet.</p>
       ) : (
         <div className="space-y-4">
-          {jobApplications.map((application) => (
+          {sortedApplications.map((application) => (
             <Card key={application._id} className="shadow rounded-sm p-4 pt-8">
               <div className="flex justify-between items-start mb-2 pl-6 pr-4">
                 <div className="">

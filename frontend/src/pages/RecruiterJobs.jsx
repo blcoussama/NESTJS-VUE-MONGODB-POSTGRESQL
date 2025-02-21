@@ -28,14 +28,16 @@ const RecruiterJobs = () => {
   const { jobs, loading, error } = useSelector((state) => state.job);
   const [deletingId, setDeletingId] = useState(null);
 
+  // Use recruiterId from params or fallback to the logged-in user's id.
+  const targetRecruiterId = recruiterId || user?._id;
   // Check if current user is the owner
-  const isOwner = user?.role === "recruiter" && user?._id === recruiterId;
+  const isOwner = user?.role === "recruiter" && user?._id === targetRecruiterId;
 
   useEffect(() => {
-    if (recruiterId) {
-      dispatch(getJobsByRecruiter(recruiterId));
+    if (targetRecruiterId) {
+      dispatch(getJobsByRecruiter(targetRecruiterId));
     }
-  }, [dispatch, recruiterId]);
+  }, [dispatch, targetRecruiterId]);
 
   const handleDelete = async (jobId) => {
     try {
@@ -170,47 +172,54 @@ const RecruiterJobs = () => {
     );
   };
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
   return (
-    <div className="container mx-auto p-4">
-      <div className="rounded-lg shadow p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">
+    <div className="container mx-auto px-4 py-6">
+      <div className="rounded-lg shadow-2xl p-6">
+        <div className="flex justify-between items-start mb-10">
+          <h2 className="text-2xl font-bold">
             {isOwner ? "Your Job Postings" : "Job Postings"}
-          </h1>
-          {isOwner && (
+          </h2>
+          {isOwner && jobs?.length > 0 && (
             <Button asChild variant="default" size="lg" className="text-base">
-              <Link to={`/select-company-for-job/${recruiterId}`}>
-                Post New Job
-              </Link>
+              <Link to={`/select-company-for-job/${targetRecruiterId}`}>Post New Job</Link>
             </Button>
           )}
         </div>
 
-        {loading && (
-          <div className="flex justify-center items-center h-64">
-            <LoadingSpinner />
+        {error && <p className="text-red-500">{error}</p>}
+
+        {jobs?.length > 0 ? (
+          <div className="grid gap-4">
+            {jobs.map((job) => (
+              <JobCard
+                key={job._id}
+                job={job}
+                onDelete={handleDelete}
+                isDeleting={deletingId === job._id}
+                isOwner={isOwner}
+              />
+            ))}
           </div>
-        )}
-
-        {error && <div className="text-red-600 p-4">{error}</div>}
-
-        <div className="grid gap-4">
-          {jobs?.map((job) => (
-            <JobCard
-              key={job._id}
-              job={job}
-              onDelete={handleDelete}
-              isDeleting={deletingId === job._id}
-              isOwner={isOwner}
-            />
-          ))}
-        </div>
-
-        {!loading && jobs?.length === 0 && (
-          <div className="text-lg text-center py-8">
-            {isOwner
-              ? "You haven't posted any jobs yet."
-              : "No job postings available."}
+        ) : (
+          <div className="text-center py-8">
+            <p className="mb-4">
+              {isOwner
+                ? "You haven't posted any jobs yet."
+                : "This recruiter hasn't posted any jobs yet."}
+            </p>
+            {isOwner && (
+              <Button asChild variant="default" size="lg" className="text-base">
+                <Link to={`/select-company-for-job/${targetRecruiterId}`}>Post your first Job</Link>
+              </Button>
+            )}
           </div>
         )}
       </div>

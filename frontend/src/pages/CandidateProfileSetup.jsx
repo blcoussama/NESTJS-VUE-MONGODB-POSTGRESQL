@@ -129,7 +129,7 @@ const CandidateProfileUpdate = () => {
       })
 
       if (response.data.success) {
-        navigate('/candidate-dashboard')
+        navigate('/jobs')
       }
     } catch (err) {
       setError(err.response?.data?.message || 'An error occurred during profile update')
@@ -285,7 +285,6 @@ const CandidateProfileUpdate = () => {
               type="text"
               value={skills}
               onChange={(e) => setSkills(e.target.value)}
-              placeholder="e.g. JavaScript, React, Node.js"
             />
           </div>
 

@@ -83,7 +83,7 @@ const RecruiterProfileUpdate = () => {
       })
 
       if (response.data.success) {
-        navigate(-1) // Redirect after update
+        navigate("/recruiter-companies") // Redirect after update
       }
     } catch (err) {
       setError(err.response?.data?.message || 'An error occurred during profile update')

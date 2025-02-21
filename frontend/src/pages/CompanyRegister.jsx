@@ -138,7 +138,7 @@ const RegisterCompany = () => {
       }
 
       await dispatch(registerCompany(formDataToSend)).unwrap()
-      navigate('/recruiter-companies')
+      navigate('/recruiter-jobs')
     } catch (err) {
       console.error('Error registering company:', err)
     } finally {
