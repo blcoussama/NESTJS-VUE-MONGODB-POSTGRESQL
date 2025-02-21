@@ -15,9 +15,10 @@ const ForgotPassword = () => {
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submissionError, setSubmissionError] = useState("");
 
   const dispatch = useDispatch();
-  const { isLoading, error } = useSelector((state) => state.auth);
+  const { isLoading } = useSelector((state) => state.auth);
 
   useEffect(() => {
     dispatch(clearError());
@@ -34,14 +35,14 @@ const ForgotPassword = () => {
       return;
     }
     setEmailError("");
+    setSubmissionError("");
 
     try {
-      const resultAction = await dispatch(forgotPassword({ email })).unwrap();
-      if (forgotPassword.fulfilled.match(resultAction)) {
-        setIsSubmitted(true);
-      }
+      await dispatch(forgotPassword({ email })).unwrap();
+      setIsSubmitted(true);
     } catch (err) {
       console.error("Error sending password reset link:", err);
+      setSubmissionError(err.message || "An error occurred. Please try again.");
     }
   };
 
@@ -53,15 +54,17 @@ const ForgotPassword = () => {
       className="max-w-md mx-auto p-8 mt-20 rounded-2xl bg-card border shadow-xl"
     >
       <CardHeader>
-        <h2 className="text-3xl font-bold mb-6 text-center">
-          Forgot Password
-        </h2>
+        <h2 className="text-3xl font-bold mb-6 text-center">Forgot Password</h2>
       </CardHeader>
       <CardContent>
+        {submissionError && (
+          <p className="text-red-500 font-semibold mb-2">{submissionError}</p>
+        )}
         {!isSubmitted ? (
           <form onSubmit={handleSubmit} className="space-y-6" noValidate>
             <p className="text-center mb-6">
-              Enter your email address and we&apos;ll send you a link to reset your password.
+              Enter your email address and we&apos;ll send you a link to reset your
+              password.
             </p>
             <div>
               <Label htmlFor="email" className="mb-1">
@@ -79,10 +82,10 @@ const ForgotPassword = () => {
                   required
                 />
               </div>
-              {emailError && <p className="text-red-500 font-semibold mt-2">{emailError}</p>}
+              {emailError && (
+                <p className="text-red-500 font-semibold mt-2">{emailError}</p>
+              )}
             </div>
-
-            {error && <p className="text-red-500 font-semibold mb-2">{error}</p>}
 
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
               <Button
@@ -105,11 +108,11 @@ const ForgotPassword = () => {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ type: "spring", stiffness: 500, damping: 30 }}
-              className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+              className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-md bg-black dark:bg-white"
             >
-              <Mail className="h-8 w-8 text-white" />
+              <Mail className="h-8 w-8 dark:text-black text-white" />
             </motion.div>
-            <p className="text-gray-500 mb-6">
+            <p className="mb-6">
               You will receive a password reset link shortly.
             </p>
           </div>

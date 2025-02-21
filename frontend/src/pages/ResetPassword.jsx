@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 const ResetPasswordPage = () => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [formError, setFormError] = useState(""); // For client-side validation errors
+  const [formError, setFormError] = useState(""); // Client-side validation errors
 
   const dispatch = useDispatch();
   const { token } = useParams(); // Reset token from URL
@@ -30,22 +30,23 @@ const ResetPasswordPage = () => {
     e.preventDefault();
     setFormError("");
 
-    // Client-side validation: ensure passwords match
+    // Client-side validation
     if (password !== confirmPassword) {
       setFormError("Passwords do not match.");
       return;
     }
+    if (password.length < 8) {
+      setFormError("Password must be at least 8 characters long.");
+      return;
+    }
 
     try {
-      // Dispatch resetPassword thunk
-      const resultAction = await dispatch(resetPassword({ token, password })).unwrap();
-      if (resetPassword.fulfilled.match(resultAction)) {
-        navigate("/login");
-      } else {
-        console.error(resultAction.payload || "Password reset failed.");
-      }
+      await dispatch(resetPassword({ token, password })).unwrap();
+      // If we reach here, the reset was successful
+      navigate("/login", { state: { message: "Password reset successfully. Please log in." } });
     } catch (err) {
-      console.error("Unexpected error during password reset:", err);
+      console.error("Error during password reset:", err);
+      setFormError(err || "An unexpected error occurred. Please try again.");
     }
   };
 
@@ -57,12 +58,13 @@ const ResetPasswordPage = () => {
       className="max-w-md mx-auto p-8 mt-20 rounded-2xl bg-card border shadow-xl"
     >
       <CardHeader>
-        <h2 className="text-3xl font-bold mb-6 text-center">
-          Reset Password
-        </h2>
+        <h2 className="text-3xl font-bold mb-6 text-center">Reset Password</h2>
       </CardHeader>
       <CardContent>
+        {/* Server-side error from Redux */}
         {error && <p className="text-red-500 font-semibold mb-4">{error}</p>}
+        {/* Client-side or caught error */}
+        {formError && <p className="text-red-500 font-semibold mb-4">{formError}</p>}
         <form onSubmit={handleSubmit} className="space-y-6" noValidate>
           {/* New Password Input */}
           <div>
@@ -101,9 +103,6 @@ const ResetPasswordPage = () => {
               />
             </div>
           </div>
-
-          {/* Form Validation Error */}
-          {formError && <p className="text-red-500 font-semibold">{formError}</p>}
 
           {/* Submit Button */}
           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
