@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { deleteCompany, getRecruiterCompanies } from "../store/companySlice";
 import { Globe, Loader2, MapPin, Pencil, Trash2 } from "lucide-react";
 
-// Shadcn UI components (adjust import paths as needed)
+// Shadcn UI components
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,7 +32,7 @@ const CompanyCard = ({ company }) => {
     try {
       setIsDeleting(true);
       await dispatch(deleteCompany(company._id)).unwrap();
-      // Add this line to force a refresh of the companies list
+      // Force a refresh of the companies list
       dispatch(getRecruiterCompanies(company.userId));
     } catch (error) {
       console.error("Error deleting company:", error);

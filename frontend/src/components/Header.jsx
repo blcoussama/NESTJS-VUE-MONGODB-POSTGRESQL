@@ -100,6 +100,9 @@ const Header = () => {
                   <DropdownMenuItem asChild className="pl-4 cursor-pointer">
                     <Link to="/saved-jobs">Saved Jobs</Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="pl-4 cursor-pointer">
+                    <Link to="/chat">Messages</Link>
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={handleLogout}

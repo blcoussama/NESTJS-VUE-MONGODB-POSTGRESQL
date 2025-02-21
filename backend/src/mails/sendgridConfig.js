@@ -8,9 +8,9 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Sender configuration
 export const sender = {
-    email: 'belcadioussama.eng@gmail.com', // Replace with your verified sender email address
-    name: "Belcadi Oussama", // Your name or company name
+    email: 'belcadioussama.eng@gmail.com', 
+    name: "Belcadi Oussama", 
 };
 
-// Export sgMail client to use in other parts of your app
+// Export sgMail client to use in other parts of the app
 export { sgMail };

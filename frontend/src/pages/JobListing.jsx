@@ -10,10 +10,10 @@ import {
   DollarSign,
   BookmarkIcon,
   Building2,
-  Calendar
+  Calendar,
+  RefreshCw
 } from "lucide-react";
 
-// Import shadcn UI components (adjust paths as needed)
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,6 +37,7 @@ const JobListing = () => {
   const { savedJobs } = useSelector((state) => state.savedJob);
   const { user } = useSelector((state) => state.auth);
   const [savingJobs, setSavingJobs] = useState(new Set());
+  const [refreshing, setRefreshing] = useState(false);
 
   const [filters, setFilters] = useState({
     search: "",
@@ -127,6 +128,18 @@ const JobListing = () => {
     return `${salary.toLocaleString()}`;
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await dispatch(getAllJobs(debouncedFilters)).unwrap();
+      await dispatch(getSavedJobs()).unwrap();
+    } catch (error) {
+      console.error("Failed to refresh job listings:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex">
       <div className="w-92 fixed left-0 top-0 pt-40 h-screen p-6 border-r shadow-2xl">
@@ -166,15 +179,15 @@ const JobListing = () => {
                 handleSelectChange("experienceLevel", value)
               }
             >
-              <SelectTrigger className="pl-10 w-full h-10">
+              <SelectTrigger className="pl-10 w-full h-10 cursor-pointer">
                 <SelectValue placeholder="Any Experience Level" />
-              </SelectTrigger>
+              </SelectTrigger >
               <SelectContent>
-                <SelectItem value="all">Any Experience Level</SelectItem>
-                <SelectItem value="entry">Entry</SelectItem>
-                <SelectItem value="intermediate">Intermediate</SelectItem>
-                <SelectItem value="advanced">Advanced</SelectItem>
-                <SelectItem value="expert">Expert</SelectItem>
+                <SelectItem value="all" className="cursor-pointer">Any Experience Level</SelectItem>
+                <SelectItem value="entry" className="cursor-pointer">Entry</SelectItem>
+                <SelectItem value="intermediate" className="cursor-pointer">Intermediate</SelectItem>
+                <SelectItem value="advanced" className="cursor-pointer">Advanced</SelectItem>
+                <SelectItem value="expert" className="cursor-pointer">Expert</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -186,13 +199,13 @@ const JobListing = () => {
               value={filters.salary || "all"}
               onValueChange={(value) => handleSelectChange("salary", value)}
             >
-              <SelectTrigger className="pl-10 w-full h-10">
+              <SelectTrigger className="pl-10 w-full h-10 cursor-pointer">
                 <SelectValue placeholder="Any Salary" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Any Salary</SelectItem>
-                <SelectItem value="discutable">Negotiable</SelectItem>
-                <SelectItem value="range">Specify Range</SelectItem>
+                <SelectItem value="all" className="cursor-pointer">Any Salary</SelectItem>
+                <SelectItem value="discutable" className="cursor-pointer">Negotiable</SelectItem>
+                <SelectItem value="range" className="cursor-pointer">Specify Range</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -224,6 +237,20 @@ const JobListing = () => {
       {/* Main Content Area */}
       <div className="flex-1 ml-86">
         <div className="py-6">
+          {/* New Refresh Button - Added at the top right */}
+          <div className="flex justify-end mb-6 mr-4">
+            <Button 
+              onClick={handleRefresh} 
+              variant="outline" 
+              size="lg" 
+              className="flex items-center gap-2 cursor-pointer"
+              disabled={refreshing || loading}
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh Listing
+            </Button>
+          </div>
+
           {loading ? (
             <div className="flex justify-center items-center h-64">
               <LoadingSpinner />

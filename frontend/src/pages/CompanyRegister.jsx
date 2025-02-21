@@ -249,7 +249,7 @@ const RegisterCompany = () => {
               <div className="relative">
                 {logoPreviewUrl ? (
                   <Avatar className="w-20 h-20 rounded">
-                    <AvatarImage src={logoPreviewUrl} alt="Logo Preview" />
+                    <AvatarImage src={logoPreviewUrl} alt="Logo Preview" className="object-contain w-full h-full" />
                   </Avatar>
                 ) : (
                   <div className="w-32 h-20 flex items-center justify-center rounded bg-gray-200/50 border border-gray-200 p-2 dark:bg-gray-700/20 dark:border-gray-600 shadow-md">

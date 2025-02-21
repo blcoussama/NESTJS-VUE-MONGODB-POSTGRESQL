@@ -3,8 +3,6 @@ import cloudinary from "../utils/Cloudinary.js";
 import mongoose from "mongoose";
 
 // Helper to extract Cloudinary public_id from a secure URL.
-// Assumes the URL is of the form: 
-// https://res.cloudinary.com/<cloud_name>/image/upload/v1234567890/folder/fileName.ext
 const getPublicIdFromUrl = (url) => {
   // Look for the "/upload/" segment and remove everything after the last dot.
   const uploadSegment = '/upload/';
@@ -46,7 +44,7 @@ export const recruiterProfileSetup = async (req, res) => {
     // Remove profile picture if removeProfilePicture flag is true
     if (removeProfilePicture === "true") {
         if (user.profile.profilePicture) {
-          // Assume the profile picture is stored in "profile_pictures" folder.
+          // profile picture is stored in "profile_pictures" folder.
           const parts = user.profile.profilePicture.split('/');
           const filenameWithExt = parts[parts.length - 1]; // e.g. "myPic.jpg"
           const filename = filenameWithExt.split('.')[0];   // e.g. "myPic"
@@ -152,7 +150,7 @@ export const candidateProfileSetup = async (req, res) => {
     // Process profile picture: remove if flag is set; otherwise, process upload if provided.
     if (removeProfilePicture === "true") {
       if (user.profile.profilePicture) {
-        // Assume the profile picture is stored in "profile_pictures" folder.
+        // profile picture is stored in "profile_pictures" folder.
         const parts = user.profile.profilePicture.split('/');
         const filenameWithExt = parts[parts.length - 1]; // e.g. "myPic.jpg"
         const filename = filenameWithExt.split('.')[0];   // e.g. "myPic"

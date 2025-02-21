@@ -4,7 +4,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"; // adjust this path to match your project structure
+} from "@/components/ui/select"; 
 import { useTheme } from "@/context/ThemeProvider";
 
 export function ThemeSelect() {

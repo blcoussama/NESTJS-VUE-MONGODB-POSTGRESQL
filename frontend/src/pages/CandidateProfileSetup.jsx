@@ -164,7 +164,7 @@ const CandidateProfileUpdate = () => {
           <div className="mb-6 flex flex-col items-center relative">
             <Avatar className="w-32 h-32 mb-4 border-3">
               {profilePreviewUrl ? (
-                <AvatarImage src={profilePreviewUrl} alt="Profile preview" />
+                <AvatarImage src={profilePreviewUrl} alt="Profile preview"  className="object-contain"/>
               ) : (
                 <AvatarFallback>
                   <User size={90} className="text-gray-400" />

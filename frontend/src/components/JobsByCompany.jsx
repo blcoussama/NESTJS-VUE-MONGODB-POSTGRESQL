@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { getJobsByCompany, clearError } from "../store/jobSlice";
 import { useParams, useNavigate } from "react-router-dom";
-// Import shadcn UI Card components 
+
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import LoadingSpinner from "./LoadingSpinner";
 

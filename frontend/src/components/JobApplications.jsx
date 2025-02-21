@@ -5,8 +5,8 @@ import { getJobApplications, acceptApplication, rejectApplication, clearJobAppli
 import moment from "moment";
 import { Clock, FileText, User } from "lucide-react";
 import { Link } from "react-router-dom";
-// Shadcn UI components for Card and Button
-import { Card,CardContent, CardFooter } from "@/components/ui/card";
+// Shadcn UI components 
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -72,103 +72,100 @@ const JobApplications = ({ jobId, recruiterId }) => {
   return (
     <div className="mt-4">
       {sortedApplications.length === 0 ? (
-        <p className="">No applications yet.</p>
+        <p>No applications yet.</p>
       ) : (
         <div className="space-y-4">
           {sortedApplications.map((application) => (
             <Card key={application._id} className="shadow rounded-sm p-4 pt-8">
               <div className="flex justify-between items-start mb-2 pl-6 pr-4">
-                <div className="">
-                    <div className="flex items-center gap-3">
-                        <Button
-                          variant="secondary"
-                          size="recruiterIconButton"
-                          asChild
-                          className="w-full justify-start p-6 hover:shadow-md transition-shadow"
-                        >
-                          <Link
-                            to={`/profile/${application.applicant._id}`}
-                            className="flex items-center gap-3 rounded transition-colors"
-                          >
-                            <Avatar className="w-15 h-15 border-2 border-gray-600 rounded-full">
-                              {application.applicant.profile?.profilePicture ? (
-                                <AvatarImage
-                                  src={application.applicant.profile.profilePicture}
-                                  alt="Candidate profile"
-                                />
-                              ) : (
-                                <AvatarFallback className="flex items-center justify-center">
-                                  <User style={{ width: "40px", height: "40px" }} className="text-gray-600" />
-                                </AvatarFallback>
-                              )}
-                            </Avatar>
-                            <div>
-                              <p className="font-medium text-lg">
-                                {application.applicant.profile?.firstName} {application.applicant.profile?.lastName}
-                              </p>
-                              <p className="text-base text-muted-foreground">Candidate</p>
-                            </div>
-                          </Link>
-                        </Button>
-                    </div>
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="secondary"
+                    size="recruiterIconButton"
+                    asChild
+                    className="w-full justify-start p-6 hover:shadow-md transition-shadow"
+                  >
+                    <Link
+                      to={`/profile/${application.applicant._id}`}
+                      className="flex items-center gap-3 rounded transition-colors"
+                    >
+                      <Avatar className="w-15 h-15 border-2 border-gray-600 rounded-full">
+                        {application.applicant.profile?.profilePicture ? (
+                          <AvatarImage
+                            src={application.applicant.profile.profilePicture}
+                            alt="Candidate profile"
+                          />
+                        ) : (
+                          <AvatarFallback className="flex items-center justify-center">
+                            <User style={{ width: "40px", height: "40px" }} className="text-gray-600" />
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+                      <div>
+                        <p className="font-medium text-lg">
+                          {application.applicant.profile?.firstName} {application.applicant.profile?.lastName}
+                        </p>
+                        <p className="text-base text-muted-foreground">Candidate</p>
+                      </div>
+                    </Link>
+                  </Button>
                 </div>
 
                 <div>
-                    {/* Status displayed at the top right */}
-                    <Badge
-                        className="px-2 py-1 rounded text-lg capitalize font-normal"
-                        variant = {application.status === "accepted"
-                            ? "accepted"
-                            : application.status === "rejected"
-                            ? "rejected"
-                            : application.status === "withdrawn"
-                            ? "withdrawn"
-                            : "pending"
-                        }
-                    >
+                  <Badge
+                    className="px-2 py-1 rounded text-lg capitalize font-normal"
+                    variant={
+                      application.status === "accepted"
+                        ? "accepted"
+                        : application.status === "rejected"
+                        ? "rejected"
+                        : application.status === "withdrawn"
+                        ? "withdrawn"
+                        : "pending"
+                    }
+                  >
                     {application.status}
-                    </Badge>
+                  </Badge>
                 </div>   
               </div>
 
               <CardContent className="mb-2">
                 <div className="flex items-center gap-2 mt-4 mb-4">
-                    <Clock className="h-6 w-6" />
-                    <p className="text-base text-gray-600 dark:text-gray-400">
+                  <Clock className="h-6 w-6" />
+                  <p className="text-base text-gray-600 dark:text-gray-400">
                     Applied {moment(application.createdAt).fromNow()}
-                    </p>
+                  </p>
                 </div>
                 <p className="text-lg capitalize">
-                  <span className="font-medium text-xl capi">Experience : </span>{" "}
-                  {application.experienceYears} {application.experienceYears > 1 ? "years" : "y ear"} (
+                  <span className="font-medium text-xl">Experience: </span>{" "}
+                  {application.experienceYears} {application.experienceYears > 1 ? "years" : "year"} (
                   {application.experienceLevel})
                 </p> 
                 <div className="flex flex-wrap gap-2 capitalize mt-6">
-                    <span className="font-medium text-xl">Skills:</span>
-                    {Array.isArray(application.skills)
+                  <span className="font-medium text-xl">Skills:</span>
+                  {Array.isArray(application.skills)
                     ? application.skills.map((skill, index) => (
                         <Badge key={index} variant="pending" className="text-base">
-                            {skill}
+                          {skill}
                         </Badge>
-                        ))
+                      ))
                     : <Badge variant="pending" className="text-base">{application.skills}</Badge>}
                 </div>
               </CardContent>
               <CardFooter className="flex items-center justify-between">
                 <Badge variant="secondary" className="py-3 px-4 shadow hover:shadow-lg transition-shadow">
-                    <a
-                        href={application.resume}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-500 text-lg flex items-center gap-2"
-                        >
-                        <FileText size={30} /> View Resume
-                    </a>
+                  <a
+                    href={application.resume}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-500 text-lg flex items-center gap-2"
+                  >
+                    <FileText size={30} /> View Resume
+                  </a>
                 </Badge>
                 
                 {application.status === "pending" && (
                   <div className="space-x-2">
-                    {/* Accept Dialog */}
                     <Dialog>
                       <DialogTrigger asChild>
                         <Button variant="default" size="lg" className="text-base cursor-pointer">
@@ -192,7 +189,6 @@ const JobApplications = ({ jobId, recruiterId }) => {
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>
-                    {/* Reject Dialog */}
                     <Dialog>
                       <DialogTrigger asChild>
                         <Button variant="destructive" size="lg" className="text-base cursor-pointer">

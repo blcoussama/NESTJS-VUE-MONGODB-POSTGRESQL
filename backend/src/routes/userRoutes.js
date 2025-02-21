@@ -16,7 +16,7 @@ router.put('/candidate-profile-update', VerifyToken, authorizedRoles("candidate"
 // View User PROFILE
 router.get('/profile/:id', VerifyToken, viewUserProfile);
 
-// Fet a User by ID
+// Get a User by ID
 router.get('/:id', VerifyToken, getUserById)
 
 export default router;

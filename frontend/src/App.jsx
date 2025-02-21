@@ -156,7 +156,7 @@ function App() {
               <Route path="/apply/:jobId" element={<ProtectRoute allowedRoles={['candidate']}><ApplyJob /></ProtectRoute>} />
               <Route path="/candidate/applications" element={<ProtectRoute allowedRoles={['candidate']}><CandidateApplications /></ProtectRoute>} />
 
-              <Route path="/chat/:userToChatId" element={<ProtectRoute><Chat /></ProtectRoute>} />
+              <Route path="/chat/:userToChatId?" element={<ProtectRoute><Chat /></ProtectRoute>} />
 
               <Route path="*" element={<Navigate to="/" replace />} />
 

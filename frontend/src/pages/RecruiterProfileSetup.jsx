@@ -116,9 +116,9 @@ const RecruiterProfileUpdate = () => {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Profile Picture Upload */}
           <div className="mb-6 flex flex-col items-center relative ">
-            <Avatar className="w-32 h-32 mb-4 border-3">
+            <Avatar className="w-32 h-32 mb-4 border-3 object-contain">
               {previewUrl ? (
-                <AvatarImage src={previewUrl} alt="Profile preview" />
+                <AvatarImage src={previewUrl} alt="Profile preview" className="object-contain" />
               ) : (
                 <AvatarFallback>
                   <User size={90} className="text-gray-400" />

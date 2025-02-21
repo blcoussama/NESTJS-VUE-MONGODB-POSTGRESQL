@@ -3,7 +3,6 @@ import { User } from "../models/userModel.js"
 import cloudinary from "../utils/Cloudinary.js";
 import { io, getReceiverSocketId } from "../utils/Socket.io.js";
 
-// backend/src/controllers/messageController.js - updated function
 export const getUsersForSidebar = async (req, res) => {
   try {
     const loggedInUserId = req.user.userId;

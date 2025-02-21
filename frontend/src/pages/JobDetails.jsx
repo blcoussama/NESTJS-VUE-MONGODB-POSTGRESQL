@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { viewJob, clearJob, deleteJob } from "../store/jobSlice";
 import { saveJob as saveJobAction, unsaveJob, getSavedJobs } from "../store/savedJobSlice";
+import { getJobApplications } from "../store/applicationSlice"; // Import for refreshing applications
 import JobApplications from "../components/JobApplications";
 import {
   Trash2,
@@ -16,6 +17,7 @@ import {
   Briefcase,
   Calendar,
   Users,
+  RefreshCw, // Import refresh icon
 } from "lucide-react";
 import axiosInstance from "../utils/axiosInstance";
 
@@ -49,6 +51,7 @@ const JobDetails = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [recruiterProfile, setRecruiterProfile] = useState(null);
   const [savingJobs, setSavingJobs] = useState(new Set());
+  const [refreshingApplications, setRefreshingApplications] = useState(false);
 
   useEffect(() => {
     dispatch(viewJob(id));
@@ -74,7 +77,8 @@ const JobDetails = () => {
     if (job) fetchRecruiterProfile();
   }, [job]);
 
-  const isJobSaved = () => savedJobs?.some((savedJob) => savedJob.job._id === job._id);
+  const isJobSaved = () =>
+    savedJobs?.some((savedJob) => savedJob.job._id === job._id);
 
   const handleSaveToggle = async (e) => {
     e.stopPropagation();
@@ -111,6 +115,18 @@ const JobDetails = () => {
     }
   };
 
+  // New function to refresh job applications
+  const handleRefreshApplications = async () => {
+    setRefreshingApplications(true);
+    try {
+      await dispatch(getJobApplications(job._id));
+    } catch (error) {
+      console.error("Failed to refresh applications:", error);
+    } finally {
+      setRefreshingApplications(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-100">
@@ -127,24 +143,20 @@ const JobDetails = () => {
     return null;
   }
 
-  const isJobOwner = user?._id === job.created_by.toString() && user?.role === "recruiter";
+  const isJobOwner =
+    user?._id === job.created_by.toString() && user?.role === "recruiter";
 
-  // Filter out empty or whitespace-only requirements
   const validRequirements = job.requirements
     ? job.requirements.filter((req) => req.trim() !== "")
     : [];
 
-  // Check if candidate has already applied.
-  // This assumes that your backend populates job.applications with objects containing an "applicant" field.
   const candidateHasApplied =
     user?.role === "candidate" &&
     job.applications &&
     job.applications.some((application) => {
-      // If populated, application is an object with an applicant field.
       if (typeof application === "object" && application.applicant) {
         return application.applicant.toString() === user._id.toString();
       }
-      // Otherwise, if not populated, we cannot confirm—assume false.
       return false;
     });
 
@@ -181,7 +193,6 @@ const JobDetails = () => {
             </div>
 
             <div className="flex gap-10">
-              {/* SAVE JOB BUTTON */}
               {!isJobOwner && user && (
                 <Button
                   variant="secondary"
@@ -207,13 +218,14 @@ const JobDetails = () => {
                 </Button>
               )}
 
-              {/* EDIT AND DELETE JOB BUTTONS */}
               {isJobOwner && (
                 <div className="top-4 right-4 flex items-center gap-4">
                   <Button
                     variant="outline"
                     size="lg"
-                    onClick={() => navigate(`/update-job/${job._id}/from/${job.company?._id}`)}
+                    onClick={() =>
+                      navigate(`/update-job/${job._id}/from/${job.company?._id}`)
+                    }
                     className="cursor-pointer"
                   >
                     <Pencil className="h-4 w-4 mr-2" />
@@ -275,7 +287,12 @@ const JobDetails = () => {
               </div>
               <div className="flex items-center">
                 <Calendar className="mr-2 h-6 w-6 text-gray-600 dark:text-gray-300" />
-                <p>Posted on {new Date(job.createdAt).toLocaleDateString()} <span className="text-sm ml-2 text-gray-600 dark:text-gray-400">({moment(job.createdAt).fromNow()})</span></p>
+                <p>
+                  Posted on {new Date(job.createdAt).toLocaleDateString()}{" "}
+                  <span className="text-sm ml-2 text-gray-600 dark:text-gray-400">
+                    ({moment(job.createdAt).fromNow()})
+                  </span>
+                </p>
               </div>
               <div className="flex items-center">
                 <Users className="mr-2 h-6 w-6 text-gray-600 dark:text-gray-300" />
@@ -373,8 +390,20 @@ const JobDetails = () => {
 
       {isJobOwner && (
         <Card className="mt-8">
-          <CardHeader>
-            <CardTitle className="text-2xl">Job Applications</CardTitle>
+          <CardHeader className="">
+            <div className="flex justify-between items-center px-4 pr-6">
+              <CardTitle className="text-2xl">Job Applications</CardTitle>
+              <Button 
+                onClick={handleRefreshApplications} 
+                variant="outline" 
+                size="lg" 
+                className="flex items-center gap-2 cursor-pointer"
+                disabled={refreshingApplications}
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshingApplications ? 'animate-spin' : ''}`} />
+                Refresh Applications
+              </Button>
+            </div>  
           </CardHeader>
           <CardContent>
             <JobApplications jobId={job._id} recruiterId={job.created_by} />
