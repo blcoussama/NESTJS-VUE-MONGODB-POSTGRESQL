@@ -1,4 +1,3 @@
-// backend/src/utils/Socket.io.js
 import { Server } from "socket.io";
 
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
