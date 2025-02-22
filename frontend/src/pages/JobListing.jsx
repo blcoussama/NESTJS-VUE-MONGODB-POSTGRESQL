@@ -321,16 +321,16 @@ const JobListing = () => {
                       <h4 className="text-lg font-semibold mb-4">Requirements:</h4>
                       {validRequirements.length > 0 ? (
                         <ul className="flex flex-wrap gap-4">
-                          {validRequirements.slice(0, 5).map((req, index) => (
+                          {validRequirements.slice(0, 4).map((req, index) => (
                             <li key={index} className="flex items-start">
                               <Badge variant="pending" className="text-base capitalize font-normal">
                                 <span>{req}</span>
                               </Badge>
                             </li>
                           ))}
-                          {validRequirements.length > 5 && (
+                          {validRequirements.length > 4 && (
                             <li className="text-base italic">
-                              +{validRequirements.length - 5} more requirements
+                              +{validRequirements.length - 4} more requirements
                             </li>
                           )}
                         </ul>
