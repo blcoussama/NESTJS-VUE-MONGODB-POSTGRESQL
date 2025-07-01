@@ -10,10 +10,6 @@ services:
     restart: unless-stopped
     ports:
       - '27017:27017'
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: password123
-      MONGO_INITDB_DATABASE: profyle
     volumes:
       - mongodb_data:/data/db
     networks:
@@ -29,12 +25,8 @@ services:
     restart: unless-stopped
     ports:
       - '4000:4000'
-    environment:
-      - NODE_ENV=development
-      - PORT=4000
-      - MONGO_URI=mongodb://admin:password123@mongodb:27017/profyle?authSource=admin
-      - JWT_SECRET=development-jwt-secret
-      - CLIENT_URL=http://localhost:5173
+    env_file:
+      - .env # Use your existing .env file
     volumes:
       - ./backend/src:/app/src:ro
       - /app/node_modules
@@ -52,8 +44,8 @@ services:
     restart: unless-stopped
     ports:
       - '5173:5173'
-    environment:
-      - VITE_API_URL=http://localhost:4000
+    env_file:
+      - .env # Use your existing .env file
     volumes:
       - ./frontend/src:/app/src:ro
       - ./frontend/public:/app/public:ro
