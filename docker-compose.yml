@@ -26,7 +26,7 @@ services:
     ports:
       - '4000:4000'
     env_file:
-      - .env # Use your existing .env file
+      - backend/.env # Use .env file from backend directory
     volumes:
       - ./backend/src:/app/src:ro
       - /app/node_modules
@@ -45,7 +45,7 @@ services:
     ports:
       - '5173:5173'
     env_file:
-      - .env # Use your existing .env file
+      - backend/.env # Use .env file from backend directory
     volumes:
       - ./frontend/src:/app/src:ro
       - ./frontend/public:/app/public:ro

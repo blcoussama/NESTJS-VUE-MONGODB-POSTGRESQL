@@ -1,22 +1,15 @@
-# docker-compose.dev.yml - Development Configuration
-
-version: '3.8'
+# docker-compose.dev.yml - Development Configuration (Uses backend/.env)
 
 services:
-  # MongoDB Database
+  # MongoDB Database (Simple development setup)
   mongodb:
     image: mongo:7.0
     container_name: profyle-mongo-dev
     restart: unless-stopped
     ports:
-      - "27017:27017"
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: password123
-      MONGO_INITDB_DATABASE: profyle
+      - '27017:27017'
     volumes:
       - mongodb_data:/data/db
-      - ./mongodb/init:/docker-entrypoint-initdb.d:ro
     networks:
       - profyle-network
 
@@ -29,14 +22,10 @@ services:
     container_name: profyle-backend-dev
     restart: unless-stopped
     ports:
-      - "4000:4000"
-      - "9229:9229"  # Node.js debugger port
+      - '4000:4000'
+      - '9229:9229' # Node.js debugger port
     env_file:
-      - .env  # Use your existing .env file - all variables from there
-    depends_on:
-      - mongodb
-    networks:
-      - profyle-network
+      - backend/.env # ✅ Use .env file from backend directory
     volumes:
       # Mount source code for hot reloading
       - ./backend/src:/app/src:ro
@@ -50,7 +39,7 @@ services:
       - profyle-network
     # Health check
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4000/api/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:4000/api/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -64,9 +53,9 @@ services:
     container_name: profyle-frontend-dev
     restart: unless-stopped
     ports:
-      - "5173:5173"
+      - '5173:5173'
     env_file:
-      - .env  # Use your existing .env file
+      - backend/.env # ✅ Use .env file from backend directory
     volumes:
       # Mount source code for hot reloading
       - ./frontend/src:/app/src:ro
@@ -76,10 +65,10 @@ services:
       - ./frontend/vite.config.js:/app/vite.config.js:ro
       # Exclude node_modules from host
       - /app/node_modules
-    networks:
-      - profyle-network
     depends_on:
       - backend
+    networks:
+      - profyle-network
 
   # Redis (for session storage and caching - optional)
   redis:
@@ -87,7 +76,7 @@ services:
     container_name: profyle-redis-dev
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - '6379:6379'
     volumes:
       - redis_data:/data
     networks:
@@ -104,12 +93,3 @@ volumes:
     driver: local
   redis_data:
     driver: local
-
-# Why this configuration?
-# 1. Separate containers for each service (microservices architecture)
-# 2. Volume mounts for hot reloading during development
-# 3. Health checks to ensure services are running correctly
-# 4. Custom network for inter-service communication
-# 5. Persistent volumes for database data
-# 6. Environment variables for configuration
-# 7. Port mapping for local development access
