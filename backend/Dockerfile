@@ -1,51 +1,75 @@
 # Backend Dockerfile - backend/Dockerfile
 
-# Use Node.js 18 Alpine for smaller image size and security
-FROM node:18-alpine
+# Development stage
+FROM node:18-alpine AS development
 
-# Why Alpine? 
-# - Smaller image size (~5MB vs ~150MB for standard Node)
-# - Better security (minimal attack surface)
-# - Faster downloads and deployments
+# Install development tools
+RUN apk add --no-cache dumb-init curl
 
-# Set working directory inside container
+# Set working directory
 WORKDIR /app
 
-# Install dumb-init for proper signal handling
-# This ensures graceful shutdowns and proper process management
-RUN apk add --no-cache dumb-init
-
-# Create non-root user for security
+# Create non-root user
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nodejs -u 1001
 
-# Copy package.json and package-lock.json first
-# This leverages Docker layer caching - dependencies change less frequently than source code
+# Copy package files
 COPY package*.json ./
 
-# Install dependencies
-# --only=production skips devDependencies in production
-# --no-cache prevents npm cache in image layers
-RUN npm ci --only=production && npm cache clean --force
+# Install all dependencies (including dev)
+RUN npm ci && npm cache clean --force
+
+# Install nodemon globally for hot reloading
+RUN npm install -g nodemon
 
 # Copy source code
-# Done after npm install to maximize cache efficiency
 COPY . .
 
-# Change ownership to nodejs user
+# Change ownership
 RUN chown -R nodejs:nodejs /app
 USER nodejs
 
-# Expose the port your app runs on
+# Expose port and debugger port
+EXPOSE 4000 9229
+
+# Development command with nodemon and debugger
+CMD ["nodemon", "--inspect=0.0.0.0:9229", "src/index.js"]
+
+# Production stage
+FROM node:18-alpine AS production
+
+# Install production dependencies only
+RUN apk add --no-cache dumb-init curl
+
+# Set working directory
+WORKDIR /app
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nodejs -u 1001
+
+# Copy package files
+COPY package*.json ./
+
+# Install production dependencies only
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy source code
+COPY . .
+
+# Change ownership
+RUN chown -R nodejs:nodejs /app
+USER nodejs
+
+# Expose port
 EXPOSE 4000
 
-# Health check to monitor container health
+# Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:4000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })" \
-    || exit 1
+    CMD curl -f http://localhost:4000/api/health || exit 1
 
-# Use dumb-init to handle signals properly
+# Use dumb-init for proper signal handling
 ENTRYPOINT ["dumb-init", "--"]
 
-# Start the application
+# Start application
 CMD ["node", "src/index.js"]

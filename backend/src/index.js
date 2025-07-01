@@ -32,13 +32,31 @@ if (!process.env.MONGO_URI || !process.env.JWT_SECRET) {
     process.exit(1);
 }
 
-// Initialize middleware
-app.use(cors({ origin: "http://localhost:5173", credentials: true }));
+// Initialize middlewares
+// CORS configuration
+app.use(cors({ 
+    origin: [
+        "http://localhost:5173", 
+        "http://frontend:5173", // Docker container communication
+        process.env.CLIENT_URL
+    ], 
+    credentials: true 
+}));
 app.use(express.json()); // Parse JSON requests
 app.use(cookieParser()); // Parse incoming cookies
 
 // Initialize Socket.IO with the server
 initializeSocket(server);
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+    res.status(200).json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        environment: process.env.NODE_ENV || 'development'
+    });
+});
 
 // Routes
 app.use("/api/auth", AuthRoutes)

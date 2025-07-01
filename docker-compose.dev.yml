@@ -1,0 +1,115 @@
+# docker-compose.dev.yml - Development Configuration
+
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: profyle-mongo-dev
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: profyle
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongodb/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - profyle-network
+
+  # Backend Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    container_name: profyle-backend-dev
+    restart: unless-stopped
+    ports:
+      - '4000:4000'
+      - '9229:9229' # Node.js debugger port
+    env_file:
+      - .env.dev
+    environment:
+      # Override specific values for Docker
+      - MONGO_URI=mongodb://admin:password123@mongodb:27017/profyle?authSource=admin
+      - PORT=4000
+    volumes:
+      # Mount source code for hot reloading
+      - ./backend/src:/app/src:ro
+      - ./backend/package.json:/app/package.json:ro
+      - ./backend/package-lock.json:/app/package-lock.json:ro
+      # Exclude node_modules from host
+      - /app/node_modules
+    depends_on:
+      - mongodb
+    networks:
+      - profyle-network
+    # Health check
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:4000/api/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend Service (for development, run Vite dev server)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev # Separate dev Dockerfile
+    container_name: profyle-frontend-dev
+    restart: unless-stopped
+    ports:
+      - '5173:5173'
+    environment:
+      - VITE_API_URL=http://localhost:4000
+      - VITE_SOCKET_URL=http://localhost:4000
+    volumes:
+      # Mount source code for hot reloading
+      - ./frontend/src:/app/src:ro
+      - ./frontend/public:/app/public:ro
+      - ./frontend/index.html:/app/index.html:ro
+      - ./frontend/package.json:/app/package.json:ro
+      - ./frontend/vite.config.js:/app/vite.config.js:ro
+      # Exclude node_modules from host
+      - /app/node_modules
+    networks:
+      - profyle-network
+    depends_on:
+      - backend
+
+  # Redis (for session storage and caching - optional)
+  redis:
+    image: redis:7-alpine
+    container_name: profyle-redis-dev
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    networks:
+      - profyle-network
+
+# Networks
+networks:
+  profyle-network:
+    driver: bridge
+
+# Volumes for data persistence
+volumes:
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local
+# Why this configuration?
+# 1. Separate containers for each service (microservices architecture)
+# 2. Volume mounts for hot reloading during development
+# 3. Health checks to ensure services are running correctly
+# 4. Custom network for inter-service communication
+# 5. Persistent volumes for database data
+# 6. Environment variables for configuration
+# 7. Port mapping for local development access

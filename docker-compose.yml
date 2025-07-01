@@ -1,0 +1,72 @@
+# docker-compose.yml - Main compose file
+
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: profyle-mongo
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: profyle
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - profyle-network
+
+  # Backend Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    container_name: profyle-backend
+    restart: unless-stopped
+    ports:
+      - '4000:4000'
+    environment:
+      - NODE_ENV=development
+      - PORT=4000
+      - MONGO_URI=mongodb://admin:password123@mongodb:27017/profyle?authSource=admin
+      - JWT_SECRET=development-jwt-secret
+      - CLIENT_URL=http://localhost:5173
+    volumes:
+      - ./backend/src:/app/src:ro
+      - /app/node_modules
+    depends_on:
+      - mongodb
+    networks:
+      - profyle-network
+
+  # Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: profyle-frontend
+    restart: unless-stopped
+    ports:
+      - '5173:5173'
+    environment:
+      - VITE_API_URL=http://localhost:4000
+    volumes:
+      - ./frontend/src:/app/src:ro
+      - ./frontend/public:/app/public:ro
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - profyle-network
+
+networks:
+  profyle-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+    driver: local
