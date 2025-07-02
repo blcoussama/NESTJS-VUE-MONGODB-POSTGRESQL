@@ -4,8 +4,10 @@
   "main": "index.js",
   "devDependencies": {},
   "scripts": {
-    "start": "npm run start --prefix backend",
-    "build": "npm install --prefix frontend && npm install --prefix backend && npm run build --prefix frontend"
+    "test": "npm run test --prefix backend && npm run test --prefix frontend",
+    "lint": "npm run lint --prefix backend && npm run lint --prefix frontend",
+    "build": "npm install --prefix frontend && npm install --prefix backend && npm run build --prefix frontend",
+    "start": "npm run start --prefix backend"
   },
   "repository": {
     "type": "git",

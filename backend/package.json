@@ -4,7 +4,11 @@
   "main": "src/index.js",
   "scripts": {
     "dev": "nodemon src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix"
   },
   "keywords": [],
   "author": "",
@@ -28,6 +32,9 @@
   },
   "devDependencies": {
     "@types/node": "^22.13.4",
-    "nodemon": "^3.1.9"
+    "nodemon": "^3.1.9",
+    "jest": "^29.0.0",
+    "supertest": "^6.0.0",
+    "eslint": "^8.0.0"
   }
 }
