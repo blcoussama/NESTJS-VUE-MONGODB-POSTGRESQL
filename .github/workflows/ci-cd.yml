@@ -225,7 +225,7 @@ jobs:
 
     environment:
       name: production
-      url: https://your-app.onrender.com
+      url: https://profyle.onrender.com
 
     steps:
       - name: 📥 Checkout Repository
