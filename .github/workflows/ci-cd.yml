@@ -1,0 +1,192 @@
+# .github/workflows/ci-cd.yml
+# Complete CI/CD Pipeline for PROFYLE
+
+name: 🚀 CI/CD Pipeline
+
+# Trigger the workflow
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+# Environment variables
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  # Job 1: Code Quality & Testing
+  test:
+    name: 🧪 Test & Quality Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Checkout code
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      # Setup Node.js
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      # Install dependencies
+      - name: 📦 Install Dependencies
+        run: |
+          npm install --prefix backend
+          npm install --prefix frontend
+
+      # Lint code
+      - name: 🔍 Lint Code
+        run: |
+          npm run lint --prefix backend
+          npm run lint --prefix frontend
+
+      # Run tests
+      - name: 🧪 Run Backend Tests
+        run: npm run test --prefix backend
+
+      - name: 🧪 Run Frontend Tests  
+        run: npm run test --prefix frontend
+
+      # Build application
+      - name: 🏗️ Build Application
+        run: npm run build
+
+      # Upload build artifacts
+      - name: 📤 Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-files
+          path: frontend/dist/
+
+  # Job 2: Security Scanning
+  security:
+    name: 🔒 Security Scan
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      # Audit dependencies for vulnerabilities
+      - name: 🔍 Audit Dependencies
+        run: |
+          npm audit --prefix backend
+          npm audit --prefix frontend
+
+      # CodeQL Analysis
+      - name: 🔍 CodeQL Analysis
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+
+      - name: 🔍 Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  # Job 3: Docker Build (Optional)
+  docker-build:
+    name: 🐳 Docker Build Test
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      # Test Docker builds
+      - name: 🐳 Test Development Build
+        run: docker-compose build
+
+      - name: 🐳 Test Production Build
+        run: docker-compose -f docker-compose.prod.yml build
+
+  # Job 4: Deploy to Staging (when pushing to develop)
+  deploy-staging:
+    name: 🚀 Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      # Deploy to staging environment
+      - name: 🚀 Deploy to Staging
+        run: |
+          echo "🚀 Deploying to staging environment..."
+          # Add your staging deployment commands here
+          # Example: curl -X POST "$STAGING_WEBHOOK_URL"
+
+  # Job 5: Deploy to Production (when pushing to main)
+  deploy-production:
+    name: 🚀 Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [test, security, docker-build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    environment:
+      name: production
+      url: https://your-app.onrender.com
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      # Deploy to production (Render)
+      - name: 🚀 Deploy to Production
+        run: |
+          echo "🚀 Deploying to production..."
+          # Render auto-deploys from main branch
+          # This job mainly serves as a checkpoint
+
+      # Notify deployment
+      - name: 📢 Notify Deployment Success
+        run: |
+          echo "✅ Deployment to production completed successfully!"
+          # Add Slack/Discord notification here if desired
+
+  # Job 6: End-to-End Tests (after deployment)
+  e2e-tests:
+    name: 🔄 End-to-End Tests
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 📦 Install Dependencies
+        run: npm install --prefix frontend
+
+      # Run E2E tests against production
+      - name: 🔄 Run E2E Tests
+        run: |
+          echo "🔄 Running E2E tests against production..."
+          # npm run e2e --prefix frontend
+          # Add your Cypress or Playwright tests here
+
+      # Rollback if E2E tests fail
+      - name: ⚠️ Rollback if E2E Fails
+        if: failure()
+        run: |
+          echo "❌ E2E tests failed! Consider rollback..."
+          # Add rollback logic here
+
+# Workflow Summary:
+# 1. Test & Quality: Lint, test, build
+# 2. Security: Audit dependencies, code analysis  
+# 3. Docker: Test container builds
+# 4. Deploy: Automatic deployment based on branch
+# 5. E2E: Test production deployment
+# 6. Monitor: Track deployment success
