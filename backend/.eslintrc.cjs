@@ -12,7 +12,7 @@ module.exports = {
       sourceType: 'module'
     },
     rules: {
-      'no-console': 'warn',
+      'no-console': 'off',        // ← Allow console.log in development
       'no-unused-vars': 'error',
       'prefer-const': 'error',
       'no-var': 'error'

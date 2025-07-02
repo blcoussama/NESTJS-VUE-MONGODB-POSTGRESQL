@@ -326,7 +326,7 @@ export const viewUserProfile = async (req, res) => {
     }
 
     // Create a copy of the profile data
-    let profileData = { ...user.profile.toObject() };
+    const profileData = { ...user.profile.toObject() };
 
     if (user.role === "recruiter") {
       // For recruiters, remove candidate-specific fields

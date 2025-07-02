@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+ 
 const FormInput = ({ icon: Icon, type = "input", options = [], ...props }) => {
   return (
     <div className="relative mb-6">

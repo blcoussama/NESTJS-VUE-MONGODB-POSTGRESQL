@@ -307,7 +307,7 @@ export const RefreshToken = async (req, res) => {
             return res.status(401).json({ success: false, message: "Unauthorized: Invalid refresh token." });
         }
 
-        jwt.verify(refreshToken, process.env.REFRESH_SECRET, (err, decoded) => {
+        jwt.verify(refreshToken, process.env.REFRESH_SECRET, (err) => {
             if (err) {
                 console.error("Token verification failed:", err);
                 return res.status(401).json({ success: false, message: "Unauthorized: Invalid or expired refresh token." });

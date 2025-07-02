@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+ 
 import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { getJobApplications, acceptApplication, rejectApplication, clearJobApplications } from "../store/applicationSlice";

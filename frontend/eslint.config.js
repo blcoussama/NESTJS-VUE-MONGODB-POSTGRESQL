@@ -29,10 +29,9 @@ export default [
       ...react.configs['jsx-runtime'].rules,
       ...reactHooks.configs.recommended.rules,
       'react/jsx-no-target-blank': 'off',
-      'react-refresh/only-export-components': [
-        'warn',
-        { allowConstantExport: true },
-      ],
+      'react/prop-types': 'off',              // ← Disable prop-types for UI components
+      'react-refresh/only-export-components': 'off',  // ← Allow mixed exports
+      'no-unused-vars': 'warn',               // ← Make unused vars warnings
     },
   },
   // Test files configuration

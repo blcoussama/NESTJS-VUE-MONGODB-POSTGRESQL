@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+ 
 import { motion } from "framer-motion";
 
 const LoadingSpinner = ({ widthClass = "w-16", heightClass = "h-16", containerClass = "h-screen" }) => {

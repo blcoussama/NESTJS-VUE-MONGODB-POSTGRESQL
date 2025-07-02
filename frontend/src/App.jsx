@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+ 
 import { Routes, Route, Navigate } from 'react-router-dom';
 import LoadingSpinner from './components/LoadingSpinner';
 import SignUp from './pages/SignUp';

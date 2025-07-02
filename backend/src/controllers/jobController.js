@@ -275,7 +275,7 @@ export const getJobsByRecruiter = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid recruiter ID format." });
     }
 
-    const jobs = await Job.find({ created_by: recruiterId }).sort({ createdAt: -1 }).populate("company", "name logo");;
+    const jobs = await Job.find({ created_by: recruiterId }).sort({ createdAt: -1 }).populate("company", "name logo");
 
     return res.status(200).json({ success: true, jobs });
   } catch (error) {
@@ -300,7 +300,7 @@ export const getAllJobs = async (req, res) => {
     } = req.query;
 
     // Build a filter object; for example, only show open jobs
-    let filter = { isOpen: true };
+    const filter = { isOpen: true };
 
     // Search filter on job title (case-insensitive)
     if (search) {
