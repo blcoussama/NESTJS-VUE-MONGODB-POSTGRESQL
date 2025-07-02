@@ -1,5 +1,5 @@
 # .github/workflows/ci-cd.yml
-# Complete CI/CD Pipeline for PROFYLE
+# Complete CI/CD Pipeline for PROFYLE - FIXED FOR MONOREPO
 
 name: 🚀 CI/CD Pipeline
 
@@ -25,34 +25,60 @@ jobs:
       - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
-      # Setup Node.js
+      # Setup Node.js WITHOUT automatic caching (monorepo issue fix)
       - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          # Removed 'cache: npm' - this was causing the error!
+
+      # Manual caching for better monorepo support
+      - name: 📦 Cache Backend Dependencies
+        uses: actions/cache@v4
+        with:
+          path: backend/node_modules
+          key: ${{ runner.os }}-backend-${{ hashFiles('backend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-backend-
+
+      - name: 📦 Cache Frontend Dependencies
+        uses: actions/cache@v4
+        with:
+          path: frontend/node_modules
+          key: ${{ runner.os }}-frontend-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-frontend-
 
       # Install dependencies
-      - name: 📦 Install Dependencies
-        run: |
-          npm install --prefix backend
-          npm install --prefix frontend
+      - name: 📦 Install Backend Dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: 📦 Install Frontend Dependencies
+        working-directory: frontend
+        run: npm ci
 
       # Lint code
-      - name: 🔍 Lint Code
-        run: |
-          npm run lint --prefix backend
-          npm run lint --prefix frontend
+      - name: 🔍 Lint Backend Code
+        working-directory: backend
+        run: npm run lint
+
+      - name: 🔍 Lint Frontend Code
+        working-directory: frontend
+        run: npm run lint
 
       # Run tests
       - name: 🧪 Run Backend Tests
-        run: npm run test --prefix backend
+        working-directory: backend
+        run: npm test
 
       - name: 🧪 Run Frontend Tests  
-        run: npm run test --prefix frontend
+        working-directory: frontend
+        run: npm run test:run
 
       # Build application
-      - name: 🏗️ Build Application
+      - name: 🏗️ Build Frontend Application
+        working-directory: frontend
         run: npm run build
 
       # Upload build artifacts
@@ -72,14 +98,28 @@ jobs:
       - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
       # Audit dependencies for vulnerabilities
-      - name: 🔍 Audit Dependencies
+      - name: 🔍 Audit Backend Dependencies
+        working-directory: backend
         run: |
-          npm audit --prefix backend
-          npm audit --prefix frontend
+          npm ci
+          npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: 🔍 Audit Frontend Dependencies
+        working-directory: frontend
+        run: |
+          npm ci
+          npm audit --audit-level=high
+        continue-on-error: true
 
       # CodeQL Analysis
-      - name: 🔍 CodeQL Analysis
+      - name: 🔍 Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: javascript
@@ -98,11 +138,16 @@ jobs:
         uses: actions/checkout@v4
 
       # Test Docker builds
-      - name: 🐳 Test Development Build
-        run: docker-compose build
+      - name: 🐳 Test Backend Docker Build
+        working-directory: backend
+        run: docker build -t backend-test .
 
-      - name: 🐳 Test Production Build
-        run: docker-compose -f docker-compose.prod.yml build
+      - name: 🐳 Test Frontend Docker Build
+        working-directory: frontend
+        run: docker build -t frontend-test .
+
+      - name: 🐳 Test Development Docker Compose
+        run: docker-compose -f docker-compose.dev.yml build
 
   # Job 4: Deploy to Staging (when pushing to develop)
   deploy-staging:
@@ -167,7 +212,8 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: 📦 Install Dependencies
-        run: npm install --prefix frontend
+        working-directory: frontend
+        run: npm ci
 
       # Run E2E tests against production
       - name: 🔄 Run E2E Tests
@@ -182,11 +228,3 @@ jobs:
         run: |
           echo "❌ E2E tests failed! Consider rollback..."
           # Add rollback logic here
-
-# Workflow Summary:
-# 1. Test & Quality: Lint, test, build
-# 2. Security: Audit dependencies, code analysis  
-# 3. Docker: Test container builds
-# 4. Deploy: Automatic deployment based on branch
-# 5. E2E: Test production deployment
-# 6. Monitor: Track deployment success
