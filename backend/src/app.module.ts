@@ -22,6 +22,7 @@ import { CompaniesModule } from './modules/companies/companies.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { ApplicationsModule } from './modules/applications/applications.module';
 import { SavedJobsModule } from './modules/saved-jobs/saved-jobs.module';
+import { ChatModule } from './modules/chat/chat.module';
 
 @Module({
   imports: [
@@ -71,6 +72,8 @@ import { SavedJobsModule } from './modules/saved-jobs/saved-jobs.module';
     JobsModule,
     ApplicationsModule,
     SavedJobsModule,
+    // Real-time messaging (REST + Socket.io namespace /chat)
+    ChatModule,
   ],
   controllers: [AppController, HealthController],
   providers: [
