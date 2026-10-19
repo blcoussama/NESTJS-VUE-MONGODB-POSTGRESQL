@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import * as os from 'os';
 import { AppController } from './app.controller';
@@ -18,6 +19,9 @@ import { MongoExceptionFilter } from './common/filters/mongo-exception.filter';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { CompaniesModule } from './modules/companies/companies.module';
+import { JobsModule } from './modules/jobs/jobs.module';
+import { ApplicationsModule } from './modules/applications/applications.module';
+import { SavedJobsModule } from './modules/saved-jobs/saved-jobs.module';
 
 @Module({
   imports: [
@@ -51,6 +55,9 @@ import { CompaniesModule } from './modules/companies/companies.module';
       useFactory: throttlerOptionsFactory,
     }),
 
+    // Cron jobs (daily purge of expired withdrawn applications)
+    ScheduleModule.forRoot(),
+
     // PostgreSQL connection via Prisma (global — injectable in any module)
     PrismaModule,
 
@@ -61,6 +68,9 @@ import { CompaniesModule } from './modules/companies/companies.module';
     AuthModule,
     UsersModule,
     CompaniesModule,
+    JobsModule,
+    ApplicationsModule,
+    SavedJobsModule,
   ],
   controllers: [AppController, HealthController],
   providers: [
