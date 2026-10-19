@@ -16,7 +16,7 @@ model Company {
   website     String?
   location    String?
   logoUrl     String?
-  ownerId     String   @db.Uuid // References MongoDB User._id
+  ownerId     String   // References MongoDB User._id (ObjectId, not UUID)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -41,7 +41,7 @@ model Job {
   salary          Json?
   isOpen          Boolean  @default(true)
   companyId       String   @db.Uuid
-  recruiterId     String   @db.Uuid // References MongoDB User._id
+  recruiterId     String   // References MongoDB User._id (ObjectId, not UUID)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -61,7 +61,7 @@ model Job {
 model Application {
   id              String            @id @default(uuid()) @db.Uuid
   jobId           String            @db.Uuid
-  applicantId     String            @db.Uuid // References MongoDB User._id
+  applicantId     String            // References MongoDB User._id (ObjectId, not UUID)
   experienceYears Int
   experienceLevel String
   status          ApplicationStatus @default(PENDING)
@@ -84,7 +84,7 @@ model Application {
 model SavedJob {
   id        String   @id @default(uuid()) @db.Uuid
   jobId     String   @db.Uuid
-  userId    String   @db.Uuid // References MongoDB User._id
+  userId    String   // References MongoDB User._id (ObjectId, not UUID)
   createdAt DateTime @default(now())
 
   job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)

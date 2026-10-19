@@ -331,15 +331,27 @@ Cette mise à jour se fait **avant le commit final** de chaque feature branch.
 - [x] Tests Swagger UI — 7 endpoints validés : GET me ✅ PATCH me ✅ POST avatar ✅ DELETE avatar ✅ POST cv ✅ GET cv-url ✅ DELETE cv ✅
 - [x] Jest unitaires — 26/26 tests passent
 
+### ✅ Complété — `feat/companies` (build ✓, Jest 24/24 ✓)
+- [x] `common/decorators/roles.decorator.ts` — `@Roles()` decorator + `ROLES_KEY`
+- [x] `common/guards/roles.guard.ts` — `RolesGuard` : vérifie `req.user.role` contre les rôles requis
+- [x] `dto/create-company.dto.ts` — `name` (required), `description`, `website`, `location` (optionnels)
+- [x] `dto/update-company.dto.ts` — tous les champs optionnels
+- [x] `companies.service.ts` — 6 méthodes : create, findAll, findOne, update, remove, uploadLogo, deleteLogo + S3Client
+- [x] `companies.controller.ts` — 6 endpoints (POST, GET all, GET one, PATCH, DELETE, POST logo, DELETE logo)
+- [x] `companies.module.ts` — assemblage + exports CompaniesService
+- [x] `app.module.ts` — ajout CompaniesModule
+- [x] `companies.service.spec.ts` — 24 Jest tests (24/24 ✓)
+- [x] Build `npm run build` sans erreurs, ESLint 0 erreurs
+
 ### 🔄 En cours
-- [ ] Commit + PR + merge `feat/users` → `main`
+- [ ] Swagger tests (démarrer le serveur, tester les 6 endpoints)
+- [ ] Commit + PR + merge `feat/companies` → `main`
 
 ### 📋 À faire (dans l'ordre)
-- [ ] Commit + PR + merge `feat/users` → `main`
-- [ ] `feat/companies` — Module companies : CRUD entreprises
+- [ ] Swagger tests + Commit + PR + merge `feat/companies` → `main`
+- [ ] `feat/jobs` — Module jobs : CRUD offres, filtres, pagination
 - [ ] `feat/jobs` — Module jobs : CRUD offres, filtres, pagination
 - [ ] `feat/applications` — Module applications : postuler, statuts, TTL
-- [ ] `feat/upload-s3` — Service upload AWS S3
 - [ ] `feat/chat` — Module messages + Socket.io WebSockets
 - [ ] `feat/graphql` — GraphQL endpoint (en plus REST)
 - [ ] `feat/testing` — Tests Jest + Supertest + Testcontainers + k6
@@ -408,6 +420,7 @@ export class CreateJobDto {
 | ESLint `no-unsafe-assignment` sur `req.cookies.RefreshToken` | `req.cookies` est typé `any` par express | Caster : `(req.cookies as Record<string, string>)['RefreshToken']` |
 | ESLint `no-floating-promises` sur `bootstrap()` dans `main.ts` | Promise non-awaited et non-gérée | Préfixer avec `void` : `void bootstrap()` |
 | ESLint `no-unnecessary-type-assertion` + `no-unsafe-assignment` sur `as any` dans generateTokens | `config.get()` sans type param retourne déjà `any`, donc `as any` est redondant | Utiliser `config.get<StringValue>()` — supprime le besoin du cast et des eslint-disable |
+| `invalid input syntax for type uuid: "69f907..."` → 500 sur POST /companies | `ownerId String @db.Uuid` : un MongoDB ObjectId (24 chars hex) n'est pas un UUID PostgreSQL (36 chars avec tirets) | Changer en `String` (TEXT) pour tous les champs cross-DB qui référencent des ObjectIds MongoDB : `ownerId`, `recruiterId`, `applicantId`, `userId` |
 
 ---
 
