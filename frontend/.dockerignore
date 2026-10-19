@@ -1,0 +1,21 @@
+node_modules
+dist
+coverage
+cypress
+playwright-report
+test-results
+
+# Secrets : ne jamais copier dans une image
+.env
+.env.*
+!.env.example
+
+.git
+.gitignore
+.vscode
+.idea
+*.log
+npm-debug.log*
+Dockerfile
+.dockerignore
+README.md

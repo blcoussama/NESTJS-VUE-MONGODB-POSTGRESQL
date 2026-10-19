@@ -1,0 +1,22 @@
+# Dependances et builds locaux (reconstruits dans l'image)
+node_modules
+dist
+coverage
+generated
+
+# Secrets : ne jamais copier dans une image
+.env
+.env.*
+!.env.example
+
+# Divers
+.git
+.gitignore
+.vscode
+.idea
+*.log
+npm-debug.log*
+Dockerfile
+.dockerignore
+README.md
+test

@@ -1,0 +1,126 @@
+# PROFYLE v2 : stack complete (MongoDB + PostgreSQL + backend NestJS + frontend nginx).
+#
+# Aucun secret dans ce fichier : tout vient du fichier `.env` a la racine
+# (copier `.env.example` -> `.env`, ce dernier est ignore par git).
+#
+#   docker compose up -d --build          # stack complete -> http://localhost:8080
+#   docker compose up -d mongo postgres   # bases seules (backend lance avec `npm run start:dev`)
+#
+# Note : Compose interpole TOUT le fichier meme pour un seul service. Seuls les
+# mots de passe de bases (utiles dans tous les cas) sont donc obligatoires via
+# `:?` ; les secrets applicatifs (JWT, AWS, email) sont verifies par le backend
+# lui-meme (schema Joi) et il refuse de demarrer s'ils sont vides.
+
+name: profyle
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-profyle}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Definir MONGO_ROOT_PASSWORD dans .env}
+    volumes:
+      - mongo-data:/data/db
+    ports:
+      - "127.0.0.1:${MONGO_PORT:-27017}:27017"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mongosh --quiet -u "$$MONGO_INITDB_ROOT_USERNAME" -p "$$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval "db.adminCommand('ping').ok" | grep -q 1
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-profyle}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Definir POSTGRES_PASSWORD dans .env}
+      POSTGRES_DB: ${POSTGRES_DB:-profyle}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # Job ponctuel : applique les migrations Prisma puis s'arrete (code 0).
+  migrate:
+    build:
+      context: ./backend
+      target: migrate
+    image: profyle-migrate:${PROFYLE_TAG:-local}
+    restart: "no"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-profyle}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-profyle}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+    image: profyle-backend:${PROFYLE_TAG:-local}
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      MONGODB_URI: mongodb://${MONGO_ROOT_USER:-profyle}:${MONGO_ROOT_PASSWORD}@mongo:27017/${MONGO_DB:-profyle}?authSource=admin
+      DATABASE_URL: postgresql://${POSTGRES_USER:-profyle}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-profyle}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-}
+      JWT_ACCESS_EXPIRY: ${JWT_ACCESS_EXPIRY:-15m}
+      JWT_REFRESH_EXPIRY: ${JWT_REFRESH_EXPIRY:-7d}
+      AWS_REGION: ${AWS_REGION:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_BUCKET_NAME: ${AWS_BUCKET_NAME:-}
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_USER: ${EMAIL_USER:-}
+      EMAIL_PASS: ${EMAIL_PASS:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:8080}
+    depends_on:
+      mongo:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-3000}:3000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+    image: profyle-frontend:${PROFYLE_TAG:-local}
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_BIND:-127.0.0.1}:${FRONTEND_PORT:-8080}:8080"
+
+volumes:
+  mongo-data:
+  postgres-data:
