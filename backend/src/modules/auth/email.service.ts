@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import { maskEmail } from '../../common/utils/mask-email.util';
 
 @Injectable()
 export class EmailService {
@@ -37,7 +38,7 @@ export class EmailService {
       `,
     });
 
-    this.logger.log(`Verification email sent to ${to}`);
+    this.logger.log(`Verification email sent to ${maskEmail(to)}`);
   }
 
   async sendPasswordResetEmail(to: string, token: string): Promise<void> {
@@ -59,6 +60,6 @@ export class EmailService {
       `,
     });
 
-    this.logger.log(`Password reset email sent to ${to}`);
+    this.logger.log(`Password reset email sent to ${maskEmail(to)}`);
   }
 }

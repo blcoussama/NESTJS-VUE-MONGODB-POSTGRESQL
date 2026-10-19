@@ -12,21 +12,44 @@ import {
 
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
   ApiConsumes,
+  ApiExtraModels,
+  ApiForbiddenResponse,
+  ApiOkResponse,
   ApiOperation,
+  ApiPayloadTooLargeResponse,
   ApiTags,
+  ApiUnauthorizedResponse,
+  getSchemaPath,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { FileValidationPipe } from '../../common/files/file-validation.pipe';
+import {
+  AVATAR_UPLOAD,
+  CV_UPLOAD,
+  multerOptionsFor,
+} from '../../common/files/upload-rules';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UpdateCandidateProfileDto } from './dto/update-candidate-profile.dto';
 import { UpdateRecruiterProfileDto } from './dto/update-recruiter-profile.dto';
 import { UserRole } from './schemas/user.schema';
 import { UsersService } from './users.service';
 
+const FILE_BODY = {
+  schema: {
+    type: 'object',
+    required: ['file'],
+    properties: { file: { type: 'string', format: 'binary' } },
+  },
+};
+
 @ApiTags('Users')
 @ApiBearerAuth()
+@ApiUnauthorizedResponse({ description: 'Missing or invalid access token' })
+@ApiExtraModels(UpdateCandidateProfileDto, UpdateRecruiterProfileDto)
 @UseGuards(JwtAuthGuard)
 @Controller('users')
 export class UsersController {
@@ -35,7 +58,10 @@ export class UsersController {
   // ─── GET /users/me ────────────────────────────────────────────────────────
 
   @Get('me')
-  @ApiOperation({ summary: 'Get current user profile' })
+  @ApiOperation({
+    summary: 'Get current user profile (never returns password/tokens/CV key)',
+  })
+  @ApiOkResponse({ description: 'Profile (candidate profiles include hasCv)' })
   getMyProfile(@CurrentUser('userId') userId: string) {
     return this.usersService.getMyProfile(userId);
   }
@@ -43,14 +69,29 @@ export class UsersController {
   // ─── PATCH /users/me ──────────────────────────────────────────────────────
 
   @Patch('me')
-  @ApiOperation({ summary: 'Update current user profile' })
-  @ApiBody({ type: UpdateCandidateProfileDto })
+  @ApiOperation({
+    summary: 'Update current user profile',
+    description:
+      'The body is validated against the DTO of the caller role (candidate or recruiter). ' +
+      'Unknown or sensitive fields (role, email, password, avatarUrl, cvKey, tokens…) → 400.',
+  })
+  @ApiBody({
+    schema: {
+      oneOf: [
+        { $ref: getSchemaPath(UpdateCandidateProfileDto) },
+        { $ref: getSchemaPath(UpdateRecruiterProfileDto) },
+      ],
+    },
+  })
+  @ApiOkResponse({ description: 'Updated profile' })
+  @ApiBadRequestResponse({ description: 'Invalid or forbidden field' })
   updateMyProfile(
     @CurrentUser('userId') userId: string,
-    @CurrentUser('role') role: UserRole,
-    @Body() dto: UpdateCandidateProfileDto | UpdateRecruiterProfileDto,
+    // Typed as unknown on purpose: validated in the service against the
+    // DTO of the role stored in the database
+    @Body() body: unknown,
   ) {
-    return this.usersService.updateMyProfile(userId, role, dto);
+    return this.usersService.updateMyProfile(userId, body);
   }
 
   // ─── POST /users/me/avatar ────────────────────────────────────────────────
@@ -60,18 +101,22 @@ export class UsersController {
     summary: 'Upload profile avatar (JPEG, PNG, WebP — max 2MB)',
   })
   @ApiConsumes('multipart/form-data')
-  @ApiBody({
+  @ApiBody(FILE_BODY)
+  @ApiOkResponse({
     schema: {
-      type: 'object',
-      properties: {
-        file: { type: 'string', format: 'binary' },
+      example: {
+        avatarUrl:
+          'https://bucket.s3.eu-west-3.amazonaws.com/avatars/0b5f….png',
       },
     },
   })
-  @UseInterceptors(FileInterceptor('file'))
+  @ApiBadRequestResponse({ description: 'Missing file or invalid type' })
+  @ApiPayloadTooLargeResponse({ description: 'File larger than 2MB' })
+  @UseInterceptors(FileInterceptor('file', multerOptionsFor(AVATAR_UPLOAD)))
   uploadAvatar(
     @CurrentUser('userId') userId: string,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile(new FileValidationPipe(AVATAR_UPLOAD))
+    file: Express.Multer.File,
   ) {
     return this.usersService.uploadAvatar(userId, file);
   }
@@ -89,19 +134,15 @@ export class UsersController {
   @Post('me/cv')
   @ApiOperation({ summary: 'Upload CV PDF (candidates only — max 5MB)' })
   @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        file: { type: 'string', format: 'binary' },
-      },
-    },
-  })
-  @UseInterceptors(FileInterceptor('file'))
+  @ApiBody(FILE_BODY)
+  @ApiBadRequestResponse({ description: 'Missing file or not a real PDF' })
+  @ApiForbiddenResponse({ description: 'Not a candidate' })
+  @ApiPayloadTooLargeResponse({ description: 'File larger than 5MB' })
+  @UseInterceptors(FileInterceptor('file', multerOptionsFor(CV_UPLOAD)))
   uploadCv(
     @CurrentUser('userId') userId: string,
     @CurrentUser('role') role: UserRole,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile(new FileValidationPipe(CV_UPLOAD)) file: Express.Multer.File,
   ) {
     return this.usersService.uploadCv(userId, role, file);
   }
@@ -112,6 +153,9 @@ export class UsersController {
   @ApiOperation({
     summary:
       'Get presigned URL to download CV (candidates only — expires in 15 min)',
+  })
+  @ApiOkResponse({
+    schema: { example: { url: 'https://…X-Amz-Signature=…', expiresIn: 900 } },
   })
   getCvPresignedUrl(
     @CurrentUser('userId') userId: string,

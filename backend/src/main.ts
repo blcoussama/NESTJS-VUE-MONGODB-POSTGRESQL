@@ -1,60 +1,33 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, Logger } from '@nestjs/common';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import cookieParser from 'cookie-parser';
-import helmet from 'helmet';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
+import { configureApp, setupSwagger } from './app.setup';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const config = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
 
-  // Security headers (CSP, HSTS, X-Frame-Options, etc.)
-  app.use(helmet());
+  configureApp(app);
 
-  // Parse httpOnly cookies (used by JWT refresh token)
-  app.use(cookieParser());
+  // Close DB connections / stop cron jobs cleanly on SIGTERM (docker stop)
+  app.enableShutdownHooks();
 
-  // All routes prefixed with /api
-  app.setGlobalPrefix('api');
-
-  // CORS — allow only frontend origin, with credentials (cookies)
-  app.enableCors({
-    origin: config.get<string>('client.url'),
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  });
-
-  // Global validation pipe — strips unknown fields, transforms types
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: { enableImplicitConversion: true },
-    }),
-  );
-
-  // Swagger (OpenAPI) — accessible at /api/docs
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('PROFYLE API')
-    .setDescription('Job recruitment platform REST API — v2 NestJS')
-    .setVersion('2.0.0')
-    .addBearerAuth()
-    .addCookieAuth('RefreshToken')
-    .build();
-
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);
+  const swaggerEnabled = config.get<boolean>('swagger.enabled') === true;
+  if (swaggerEnabled) {
+    setupSwagger(app);
+  }
 
   const port = config.get<number>('port') ?? 3000;
   await app.listen(port);
 
   logger.log(`Application running on http://localhost:${port}/api`);
-  logger.log(`Swagger docs at  http://localhost:${port}/api/docs`);
+  logger.log(`Health check at    http://localhost:${port}/api/health`);
+  if (swaggerEnabled) {
+    logger.log(`Swagger docs at    http://localhost:${port}/api/docs`);
+  }
 }
 
 void bootstrap();
