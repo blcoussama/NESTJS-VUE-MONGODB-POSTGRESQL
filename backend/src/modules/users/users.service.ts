@@ -4,50 +4,78 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
-import {
-  DeleteObjectCommand,
-  GetObjectCommand,
-  PutObjectCommand,
-  S3Client,
-} from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { Model } from 'mongoose';
-import { v4 as uuidv4 } from 'uuid';
+import { isValidObjectId, Model } from 'mongoose';
 import { User, UserDocument, UserRole } from './schemas/user.schema';
-import { UpdateCandidateProfileDto } from './dto/update-candidate-profile.dto';
-import { UpdateRecruiterProfileDto } from './dto/update-recruiter-profile.dto';
+import {
+  CANDIDATE_PROFILE_FIELDS,
+  UpdateCandidateProfileDto,
+} from './dto/update-candidate-profile.dto';
+import {
+  RECRUITER_PROFILE_FIELDS,
+  UpdateRecruiterProfileDto,
+} from './dto/update-recruiter-profile.dto';
+import { PublicProfile, toPublicProfile } from './user-profile.mapper';
+import { validateDto } from '../../common/validation/validate-dto';
+import {
+  PRESIGNED_URL_TTL_SECONDS,
+  StorageService,
+} from '../../common/storage/storage.service';
+import {
+  AVATAR_UPLOAD,
+  CV_UPLOAD,
+  validateUploadedFile,
+} from '../../common/files/upload-rules';
+
+/** Public data about a candidate shown to a recruiter (never the CV key). */
+export interface ApplicantSummary {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  avatarUrl: string | null;
+  hasCv: boolean;
+}
+
+const ARRAY_FIELDS = new Set(['skills', 'experiences', 'education']);
+
+/**
+ * Copies ONLY the allow-listed fields that are present in the validated DTO.
+ * Nested DTO instances are converted to plain objects for MongoDB.
+ */
+function pickAllowedFields(
+  dto: object,
+  fields: readonly string[],
+): Record<string, unknown> {
+  const source = dto as Record<string, unknown>;
+  const update: Record<string, unknown> = {};
+  for (const field of fields) {
+    const value = source[field];
+    if (value === undefined) continue;
+    if (value === null && ARRAY_FIELDS.has(field)) {
+      update[field] = [];
+    } else if (Array.isArray(value)) {
+      update[field] = JSON.parse(JSON.stringify(value)) as unknown[];
+    } else {
+      update[field] = value;
+    }
+  }
+  return update;
+}
 
 @Injectable()
 export class UsersService {
-  private readonly s3: S3Client;
-  private readonly bucket: string;
-  private readonly region: string;
-
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
-    private readonly config: ConfigService,
-  ) {
-    this.region = this.config.get<string>('aws.region')!;
-    this.bucket = this.config.get<string>('aws.bucketName')!;
-    this.s3 = new S3Client({
-      region: this.region,
-      credentials: {
-        accessKeyId: this.config.get<string>('aws.accessKeyId')!,
-        secretAccessKey: this.config.get<string>('aws.secretAccessKey')!,
-      },
-    });
-  }
+    private readonly storage: StorageService,
+  ) {}
 
   // ─── Get profile ──────────────────────────────────────────────────────────
 
-  async getMyProfile(userId: string): Promise<UserDocument> {
+  async getMyProfile(userId: string): Promise<PublicProfile> {
     const user = await this.userModel
       .findById(userId)
-      .select(
-        '-password -refreshToken -emailVerificationToken -emailVerificationExpiry -passwordResetToken -passwordResetExpiry',
-      )
+      .select('+cvKey')
       .lean()
       .exec();
 
@@ -55,79 +83,82 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    return user as UserDocument;
+    return toPublicProfile(user);
   }
 
   // ─── Update profile ───────────────────────────────────────────────────────
 
-  async updateMyProfile(
-    userId: string,
-    role: UserRole,
-    dto: UpdateCandidateProfileDto | UpdateRecruiterProfileDto,
-  ): Promise<UserDocument> {
-    const user = await this.userModel.findById(userId).exec();
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    Object.assign(user, dto);
-    await user.save();
-
-    const updated = await this.userModel
+  /**
+   * The body is validated HERE, against the DTO of the user's role as stored
+   * in the database: a TypeScript union type would be emitted as `Object`
+   * and skipped by the global ValidationPipe (mass-assignment).
+   */
+  async updateMyProfile(userId: string, body: unknown): Promise<PublicProfile> {
+    const current = await this.userModel
       .findById(userId)
-      .select(
-        '-password -refreshToken -emailVerificationToken -emailVerificationExpiry -passwordResetToken -passwordResetExpiry',
-      )
+      .select('role')
       .lean()
       .exec();
 
-    return updated as UserDocument;
+    if (!current) {
+      throw new NotFoundException('User not found');
+    }
+
+    const update =
+      current.role === UserRole.RECRUITER
+        ? pickAllowedFields(
+            await validateDto(UpdateRecruiterProfileDto, body),
+            RECRUITER_PROFILE_FIELDS,
+          )
+        : pickAllowedFields(
+            await validateDto(UpdateCandidateProfileDto, body),
+            CANDIDATE_PROFILE_FIELDS,
+          );
+
+    const updated = await this.userModel
+      .findByIdAndUpdate(
+        userId,
+        { $set: update },
+        { returnDocument: 'after', runValidators: true },
+      )
+      .select('+cvKey')
+      .lean()
+      .exec();
+
+    if (!updated) {
+      throw new NotFoundException('User not found');
+    }
+
+    return toPublicProfile(updated);
   }
 
   // ─── Upload avatar ────────────────────────────────────────────────────────
 
   async uploadAvatar(
     userId: string,
-    file: Express.Multer.File,
+    file: Express.Multer.File | undefined,
   ): Promise<{ avatarUrl: string }> {
-    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!allowedMimeTypes.includes(file.mimetype)) {
-      throw new BadRequestException(
-        'Invalid file type. Only JPEG, PNG and WebP are allowed.',
-      );
-    }
+    const type = validateUploadedFile(file, AVATAR_UPLOAD);
 
-    const maxSize = 2 * 1024 * 1024; // 2 MB
-    if (file.size > maxSize) {
-      throw new BadRequestException('File too large. Maximum size is 2MB.');
-    }
-
-    const user = await this.userModel.findById(userId).exec();
+    const user = await this.userModel
+      .findById(userId)
+      .select('avatarUrl')
+      .lean()
+      .exec();
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    // Delete old avatar from S3 if it exists
+    const key = await this.storage.upload('avatars', file!.buffer, type);
+    const avatarUrl = this.storage.publicUrl(key);
+    await this.userModel
+      .updateOne({ _id: userId }, { $set: { avatarUrl } })
+      .exec();
+
+    // Remove the replaced avatar only once the new one is saved
     if (user.avatarUrl) {
-      await this.deleteFromS3(user.avatarUrl);
+      await this.storage.deleteQuietly({ url: user.avatarUrl }, 'avatars');
     }
-
-    const extension = file.mimetype.split('/')[1];
-    const key = `avatars/${uuidv4()}.${extension}`;
-
-    await this.s3.send(
-      new PutObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-      }),
-    );
-
-    const avatarUrl = `https://${this.bucket}.s3.${this.region}.amazonaws.com/${key}`;
-    user.avatarUrl = avatarUrl;
-    await user.save();
 
     return { avatarUrl };
   }
@@ -135,7 +166,11 @@ export class UsersService {
   // ─── Delete avatar ────────────────────────────────────────────────────────
 
   async deleteAvatar(userId: string): Promise<{ message: string }> {
-    const user = await this.userModel.findById(userId).exec();
+    const user = await this.userModel
+      .findById(userId)
+      .select('avatarUrl')
+      .lean()
+      .exec();
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -144,9 +179,10 @@ export class UsersService {
       throw new BadRequestException('No avatar to delete.');
     }
 
-    await this.deleteFromS3(user.avatarUrl);
-    user.avatarUrl = null;
-    await user.save();
+    await this.storage.deleteByPublicUrl(user.avatarUrl, 'avatars');
+    await this.userModel
+      .updateOne({ _id: userId }, { $set: { avatarUrl: null } })
+      .exec();
 
     return { message: 'Avatar deleted successfully.' };
   }
@@ -156,46 +192,31 @@ export class UsersService {
   async uploadCv(
     userId: string,
     role: UserRole,
-    file: Express.Multer.File,
+    file: Express.Multer.File | undefined,
   ): Promise<{ message: string }> {
     if (role !== UserRole.CANDIDATE) {
       throw new ForbiddenException('Only candidates can upload a CV.');
     }
 
-    if (file.mimetype !== 'application/pdf') {
-      throw new BadRequestException('Invalid file type. Only PDF is allowed.');
-    }
+    const type = validateUploadedFile(file, CV_UPLOAD);
 
-    const maxSize = 5 * 1024 * 1024; // 5 MB
-    if (file.size > maxSize) {
-      throw new BadRequestException('File too large. Maximum size is 5MB.');
-    }
-
-    const user = await this.userModel.findById(userId).exec();
+    const user = await this.userModel
+      .findById(userId)
+      .select('+cvKey')
+      .lean()
+      .exec();
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    // Delete old CV from S3 if it exists
+    const key = await this.storage.upload('cvs', file!.buffer, type);
+    await this.userModel
+      .updateOne({ _id: userId }, { $set: { cvKey: key } })
+      .exec();
+
     if (user.cvKey) {
-      await this.s3.send(
-        new DeleteObjectCommand({ Bucket: this.bucket, Key: user.cvKey }),
-      );
+      await this.storage.deleteQuietly({ key: user.cvKey }, 'cvs');
     }
-
-    const key = `cvs/${uuidv4()}.pdf`;
-
-    await this.s3.send(
-      new PutObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-        Body: file.buffer,
-        ContentType: 'application/pdf',
-      }),
-    );
-
-    user.cvKey = key;
-    await user.save();
 
     return { message: 'CV uploaded successfully.' };
   }
@@ -210,24 +231,13 @@ export class UsersService {
       throw new ForbiddenException('Only candidates can access a CV.');
     }
 
-    const user = await this.userModel.findById(userId).exec();
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    if (!user.cvKey) {
+    const cvKey = await this.getCvKey(userId);
+    if (!cvKey) {
       throw new BadRequestException('No CV uploaded yet.');
     }
 
-    const expiresIn = 900; // 15 minutes
-
-    const url = await getSignedUrl(
-      this.s3,
-      new GetObjectCommand({ Bucket: this.bucket, Key: user.cvKey }),
-      { expiresIn },
-    );
-
-    return { url, expiresIn };
+    const url = await this.storage.presignDownload(cvKey, 'cvs');
+    return { url, expiresIn: PRESIGNED_URL_TTL_SECONDS };
   }
 
   // ─── Delete CV (candidates only) ──────────────────────────────────────────
@@ -237,35 +247,62 @@ export class UsersService {
       throw new ForbiddenException('Only candidates can delete a CV.');
     }
 
-    const user = await this.userModel.findById(userId).exec();
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    if (!user.cvKey) {
+    const cvKey = await this.getCvKey(userId);
+    if (!cvKey) {
       throw new BadRequestException('No CV to delete.');
     }
 
-    await this.s3.send(
-      new DeleteObjectCommand({ Bucket: this.bucket, Key: user.cvKey }),
-    );
-
-    user.cvKey = null;
-    await user.save();
+    await this.storage.delete(cvKey, 'cvs');
+    await this.userModel
+      .updateOne({ _id: userId }, { $set: { cvKey: null } })
+      .exec();
 
     return { message: 'CV deleted successfully.' };
   }
 
-  // ─── Private helpers ──────────────────────────────────────────────────────
+  // ─── Used by other modules (applications) ─────────────────────────────────
 
-  private async deleteFromS3(avatarUrl: string): Promise<void> {
-    // Extract the S3 key from the full URL
-    // URL format: https://<bucket>.s3.<region>.amazonaws.com/<key>
-    const url = new URL(avatarUrl);
-    const key = url.pathname.slice(1); // remove leading "/"
+  /** CV key of a user. Throws 404 if the user does not exist. */
+  async getCvKey(userId: string): Promise<string | null> {
+    const user = await this.userModel
+      .findById(userId)
+      .select('+cvKey')
+      .lean()
+      .exec();
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return user.cvKey ?? null;
+  }
 
-    await this.s3.send(
-      new DeleteObjectCommand({ Bucket: this.bucket, Key: key }),
+  /** Public summaries of several users in ONE query (no N+1). */
+  async findApplicantSummaries(
+    userIds: string[],
+  ): Promise<Map<string, ApplicantSummary>> {
+    const ids = [...new Set(userIds)].filter((id) => isValidObjectId(id));
+    if (ids.length === 0) return new Map();
+
+    const users = await this.userModel
+      .find({ _id: { $in: ids } })
+      .select('firstName lastName email avatarUrl cvKey')
+      .lean()
+      .exec();
+
+    return new Map(
+      users.map((user) => {
+        const id = user._id.toString();
+        return [
+          id,
+          {
+            id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            avatarUrl: user.avatarUrl ?? null,
+            hasCv: Boolean(user.cvKey),
+          },
+        ];
+      }),
     );
   }
 }

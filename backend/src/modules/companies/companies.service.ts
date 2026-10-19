@@ -1,46 +1,33 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import {
-  DeleteObjectCommand,
-  PutObjectCommand,
-  S3Client,
-} from '@aws-sdk/client-s3';
-import { v4 as uuidv4 } from 'uuid';
+import { Company } from '@prisma/client';
 import { PrismaService } from '../../database/prisma/prisma.service';
+import { StorageService } from '../../common/storage/storage.service';
+import {
+  LOGO_UPLOAD,
+  validateUploadedFile,
+} from '../../common/files/upload-rules';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 
 @Injectable()
 export class CompaniesService {
-  private readonly s3: S3Client;
-  private readonly bucket: string;
-  private readonly region: string;
-
   constructor(
     private readonly prisma: PrismaService,
-    private readonly config: ConfigService,
-  ) {
-    this.region = this.config.get<string>('aws.region')!;
-    this.bucket = this.config.get<string>('aws.bucketName')!;
-    this.s3 = new S3Client({
-      region: this.region,
-      credentials: {
-        accessKeyId: this.config.get<string>('aws.accessKeyId')!,
-        secretAccessKey: this.config.get<string>('aws.secretAccessKey')!,
-      },
-    });
-  }
+    private readonly storage: StorageService,
+  ) {}
 
   // ─── Create company ───────────────────────────────────────────────────────
 
   async create(recruiterId: string, dto: CreateCompanyDto) {
     const existing = await this.prisma.company.findFirst({
       where: { ownerId: recruiterId },
+      select: { id: true },
     });
 
     if (existing) {
@@ -49,6 +36,10 @@ export class CompaniesService {
       );
     }
 
+    await this.assertNameAvailable(dto.name);
+
+    // A concurrent duplicate still fails on the unique indexes (ownerId,
+    // name) and is turned into a 409 by the global Prisma exception filter
     return this.prisma.company.create({
       data: { ...dto, ownerId: recruiterId },
     });
@@ -70,6 +61,21 @@ export class CompaniesService {
         _count: { select: { jobs: true } },
       },
     });
+  }
+
+  // ─── Get the current recruiter's company ──────────────────────────────────
+
+  async findMine(recruiterId: string) {
+    const company = await this.prisma.company.findUnique({
+      where: { ownerId: recruiterId },
+      include: { _count: { select: { jobs: true } } },
+    });
+
+    if (!company) {
+      throw new NotFoundException('You have not created a company yet.');
+    }
+
+    return company;
   }
 
   // ─── Get one company ──────────────────────────────────────────────────────
@@ -104,14 +110,10 @@ export class CompaniesService {
   // ─── Update company ───────────────────────────────────────────────────────
 
   async update(id: string, recruiterId: string, dto: UpdateCompanyDto) {
-    const company = await this.prisma.company.findUnique({ where: { id } });
+    const company = await this.findOwnedCompany(id, recruiterId);
 
-    if (!company) {
-      throw new NotFoundException('Company not found.');
-    }
-
-    if (company.ownerId !== recruiterId) {
-      throw new ForbiddenException('You do not own this company.');
+    if (dto.name !== undefined && dto.name !== company.name) {
+      await this.assertNameAvailable(dto.name);
     }
 
     return this.prisma.company.update({
@@ -123,22 +125,14 @@ export class CompaniesService {
   // ─── Delete company ───────────────────────────────────────────────────────
 
   async remove(id: string, recruiterId: string) {
-    const company = await this.prisma.company.findUnique({ where: { id } });
+    const company = await this.findOwnedCompany(id, recruiterId);
 
-    if (!company) {
-      throw new NotFoundException('Company not found.');
-    }
-
-    if (company.ownerId !== recruiterId) {
-      throw new ForbiddenException('You do not own this company.');
-    }
-
-    // Delete logo from S3 if it exists
-    if (company.logoUrl) {
-      await this.deleteLogoFromS3(company.logoUrl);
-    }
-
+    // Jobs, applications and saved jobs are removed by ON DELETE CASCADE
     await this.prisma.company.delete({ where: { id } });
+
+    if (company.logoUrl) {
+      await this.storage.deleteQuietly({ url: company.logoUrl }, 'logos');
+    }
 
     return { message: 'Company deleted successfully.' };
   }
@@ -148,53 +142,23 @@ export class CompaniesService {
   async uploadLogo(
     id: string,
     recruiterId: string,
-    file: Express.Multer.File,
+    file: Express.Multer.File | undefined,
   ): Promise<{ logoUrl: string }> {
-    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!allowedMimeTypes.includes(file.mimetype)) {
-      throw new BadRequestException(
-        'Invalid file type. Only JPEG, PNG and WebP are allowed.',
-      );
-    }
+    const type = validateUploadedFile(file, LOGO_UPLOAD);
+    const company = await this.findOwnedCompany(id, recruiterId);
 
-    const maxSize = 2 * 1024 * 1024; // 2 MB
-    if (file.size > maxSize) {
-      throw new BadRequestException('File too large. Maximum size is 2MB.');
-    }
-
-    const company = await this.prisma.company.findUnique({ where: { id } });
-
-    if (!company) {
-      throw new NotFoundException('Company not found.');
-    }
-
-    if (company.ownerId !== recruiterId) {
-      throw new ForbiddenException('You do not own this company.');
-    }
-
-    // Delete old logo from S3 if it exists
-    if (company.logoUrl) {
-      await this.deleteLogoFromS3(company.logoUrl);
-    }
-
-    const extension = file.mimetype.split('/')[1];
-    const key = `logos/${uuidv4()}.${extension}`;
-
-    await this.s3.send(
-      new PutObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-      }),
-    );
-
-    const logoUrl = `https://${this.bucket}.s3.${this.region}.amazonaws.com/${key}`;
+    const key = await this.storage.upload('logos', file!.buffer, type);
+    const logoUrl = this.storage.publicUrl(key);
 
     await this.prisma.company.update({
       where: { id },
       data: { logoUrl },
     });
+
+    // Remove the replaced logo only once the new one is saved
+    if (company.logoUrl) {
+      await this.storage.deleteQuietly({ url: company.logoUrl }, 'logos');
+    }
 
     return { logoUrl };
   }
@@ -205,21 +169,13 @@ export class CompaniesService {
     id: string,
     recruiterId: string,
   ): Promise<{ message: string }> {
-    const company = await this.prisma.company.findUnique({ where: { id } });
-
-    if (!company) {
-      throw new NotFoundException('Company not found.');
-    }
-
-    if (company.ownerId !== recruiterId) {
-      throw new ForbiddenException('You do not own this company.');
-    }
+    const company = await this.findOwnedCompany(id, recruiterId);
 
     if (!company.logoUrl) {
       throw new BadRequestException('No logo to delete.');
     }
 
-    await this.deleteLogoFromS3(company.logoUrl);
+    await this.storage.deleteByPublicUrl(company.logoUrl, 'logos');
 
     await this.prisma.company.update({
       where: { id },
@@ -231,12 +187,31 @@ export class CompaniesService {
 
   // ─── Private helpers ──────────────────────────────────────────────────────
 
-  private async deleteLogoFromS3(logoUrl: string): Promise<void> {
-    const url = new URL(logoUrl);
-    const key = url.pathname.slice(1);
+  /** 404 if the company does not exist, 403 if the caller does not own it. */
+  private async findOwnedCompany(
+    id: string,
+    recruiterId: string,
+  ): Promise<Company> {
+    const company = await this.prisma.company.findUnique({ where: { id } });
 
-    await this.s3.send(
-      new DeleteObjectCommand({ Bucket: this.bucket, Key: key }),
-    );
+    if (!company) {
+      throw new NotFoundException('Company not found.');
+    }
+
+    if (company.ownerId !== recruiterId) {
+      throw new ForbiddenException('You do not own this company.');
+    }
+
+    return company;
+  }
+
+  private async assertNameAvailable(name: string): Promise<void> {
+    const taken = await this.prisma.company.findFirst({
+      where: { name: { equals: name, mode: 'insensitive' } },
+      select: { id: true },
+    });
+    if (taken) {
+      throw new ConflictException('A company with this name already exists.');
+    }
   }
 }

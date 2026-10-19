@@ -9,6 +9,13 @@ export interface JwtPayload {
   role: string;
 }
 
+/** Shape of `req.user` on routes protected by JwtAuthGuard. */
+export interface AuthenticatedUser {
+  userId: string;
+  email: string;
+  role: string;
+}
+
 @Injectable()
 export class JwtAccessStrategy extends PassportStrategy(
   Strategy,
@@ -20,11 +27,12 @@ export class JwtAccessStrategy extends PassportStrategy(
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       // ! asserts non-null — Joi validation guarantees this exists at startup
       secretOrKey: config.get<string>('jwt.accessSecret')!,
+      algorithms: ['HS256'],
     });
   }
 
   // Called after signature verified — return value is attached to req.user
-  validate(payload: JwtPayload) {
+  validate(payload: JwtPayload): AuthenticatedUser {
     return { userId: payload.sub, email: payload.email, role: payload.role };
   }
 }

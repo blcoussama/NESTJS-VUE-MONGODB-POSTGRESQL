@@ -1,8 +1,17 @@
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { UserRole } from '../../modules/users/schemas/user.schema';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 
+/**
+ * Must run AFTER JwtAuthGuard: `@UseGuards(JwtAuthGuard, RolesGuard)`.
+ * Fails closed (403) if no authenticated user is attached to the request.
+ */
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
@@ -19,9 +28,15 @@ export class RolesGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest<{
-      user: { role: UserRole };
+      user?: { role?: UserRole };
     }>();
+    const role = request.user?.role;
 
-    return requiredRoles.includes(request.user.role);
+    if (!role || !requiredRoles.includes(role)) {
+      throw new ForbiddenException(
+        `This action requires the ${requiredRoles.join(' or ')} role.`,
+      );
+    }
+    return true;
   }
 }

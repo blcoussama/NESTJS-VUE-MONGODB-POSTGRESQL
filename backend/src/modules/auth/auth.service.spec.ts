@@ -9,115 +9,191 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import { Response } from 'express';
+import { Types } from 'mongoose';
 
 import { AuthService } from './auth.service';
 import { EmailService } from './email.service';
 import { User, UserRole } from '../users/schemas/user.schema';
+import { Session } from './schemas/session.schema';
+import {
+  DUMMY_PASSWORD_HASH,
+  MAX_SESSIONS_PER_USER,
+  REFRESH_COOKIE,
+  REFRESH_COOKIE_PATH,
+  ROTATION_GRACE_MS,
+} from './auth.constants';
+import { sha256 } from '../../common/utils/crypto.util';
 
-// ─── Auto-mock bcryptjs ────────────────────────────────────────────────────
-// Jest remplace hash() et compare() par des jest.fn() — pas de vrai bcrypt
-// pendant les tests (pas de calcul CPU, résultat contrôlé)
+/** Typed access to the arguments of a recorded mock call. */
+function arg(mock: jest.Mock, call = 0, index = 0): unknown {
+  return (mock.mock.calls as unknown[][])[call][index];
+}
+
+// bcrypt is mocked (CPU-heavy); SHA-256 / crypto are REAL in this suite, so
+// the refresh-token rotation and replay detection are genuinely exercised.
 jest.mock('bcryptjs');
 
-// ─── Helpers ──────────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
-/** Crée un faux document Mongoose User avec un save() mockable. */
+const USER_ID = new Types.ObjectId('6710f0c2a1b2c3d4e5f60718');
+const ACCESS_SECRET = 'a'.repeat(40);
+const REFRESH_SECRET = 'r'.repeat(40);
+
+/** Chainable Mongoose query mock: .select()/.sort()/… then .exec(). */
+interface QueryMock {
+  select: jest.Mock;
+  sort: jest.Mock;
+  skip: jest.Mock;
+  lean: jest.Mock;
+  exec: jest.Mock;
+}
+
+function query<T>(value: T): QueryMock {
+  const chain = { exec: jest.fn().mockResolvedValue(value) } as QueryMock;
+  chain.select = jest.fn().mockReturnValue(chain);
+  chain.sort = jest.fn().mockReturnValue(chain);
+  chain.skip = jest.fn().mockReturnValue(chain);
+  chain.lean = jest.fn().mockReturnValue(chain);
+  return chain;
+}
+
 function createMockUser(overrides: Record<string, unknown> = {}) {
   return {
-    _id: 'user-id-123',
+    _id: USER_ID,
     firstName: 'John',
     lastName: 'Doe',
     email: 'john@example.com',
     password: '$2b$12$hashedpassword',
     role: UserRole.CANDIDATE,
     isEmailVerified: true,
-    emailVerificationToken: 'valid-token',
-    emailVerificationExpiry: new Date(Date.now() + 86_400_000), // +24h
-    passwordResetToken: null,
-    passwordResetExpiry: null,
-    refreshToken: null,
+    avatarUrl: null,
+    emailVerificationToken: null as string | null,
+    emailVerificationExpiry: null as Date | null,
+    passwordResetToken: null as string | null,
+    passwordResetExpiry: null as Date | null,
     save: jest.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
 
-// ─── Suite principale ──────────────────────────────────────────────────────
+function createMockSession(overrides: Record<string, unknown> = {}) {
+  return {
+    _id: new Types.ObjectId(),
+    userId: USER_ID,
+    familyId: 'family-1',
+    tokenHash: sha256('current-refresh-token'),
+    previousTokenHash: null as string | null,
+    rotatedAt: null as Date | null,
+    expiresAt: new Date(Date.now() + 86_400_000),
+    ...overrides,
+  };
+}
+
+/** Lets fire-and-forget promises (email dispatch) settle. */
+const flushPromises = () => new Promise((resolve) => setImmediate(resolve));
+
+// ─── Suite ──────────────────────────────────────────────────────────────────
 
 describe('AuthService', () => {
   let module: TestingModule;
   let service: AuthService;
 
-  // Mocks des dépendances injectées
   let userModel: {
     findOne: jest.Mock;
-    create: jest.Mock;
     findById: jest.Mock;
-    findByIdAndUpdate: jest.Mock;
+    findOneAndUpdate: jest.Mock;
+    deleteOne: jest.Mock;
+    create: jest.Mock;
   };
-  let jwtService: { signAsync: jest.Mock };
-  let configService: { get: jest.Mock };
+  let sessionModel: {
+    findOne: jest.Mock;
+    find: jest.Mock;
+    create: jest.Mock;
+    deleteOne: jest.Mock;
+    deleteMany: jest.Mock;
+    findOneAndUpdate: jest.Mock;
+  };
+  let jwtService: {
+    signAsync: jest.Mock;
+    verifyAsync: jest.Mock;
+    decode: jest.Mock;
+  };
+  let configValues: Record<string, unknown>;
   let emailService: {
     sendVerificationEmail: jest.Mock;
     sendPasswordResetEmail: jest.Mock;
   };
-
-  // Faux objet Response Express (on vérifie cookie() et clearCookie())
-  let mockRes: Partial<Response>;
+  let mockRes: { cookie: jest.Mock; clearCookie: jest.Mock };
+  const res = () => mockRes as unknown as Response;
 
   beforeEach(async () => {
-    // Créer des mocks frais avant chaque test
     userModel = {
       findOne: jest.fn(),
-      create: jest.fn(),
       findById: jest.fn(),
-      findByIdAndUpdate: jest.fn(),
+      findOneAndUpdate: jest.fn(),
+      deleteOne: jest.fn().mockReturnValue(query({ deletedCount: 1 })),
+      create: jest.fn().mockResolvedValue(undefined),
     };
-
+    sessionModel = {
+      findOne: jest.fn(),
+      find: jest.fn().mockReturnValue(query([])),
+      create: jest.fn().mockResolvedValue(undefined),
+      deleteOne: jest.fn().mockReturnValue(query({ deletedCount: 1 })),
+      deleteMany: jest.fn().mockReturnValue(query({ deletedCount: 0 })),
+      findOneAndUpdate: jest.fn(),
+    };
     jwtService = {
-      signAsync: jest.fn().mockResolvedValue('mocked-jwt-token'),
+      signAsync: jest
+        .fn()
+        .mockResolvedValueOnce('access-token')
+        .mockResolvedValueOnce('refresh-token'),
+      verifyAsync: jest.fn(),
+      decode: jest
+        .fn()
+        .mockReturnValue({ exp: Math.floor(Date.now() / 1000) + 604_800 }),
     };
-
-    configService = {
-      // get() retourne une chaîne générique — suffisant pour nos tests
-      get: jest.fn().mockReturnValue('test-value'),
+    configValues = {
+      'jwt.accessSecret': ACCESS_SECRET,
+      'jwt.refreshSecret': REFRESH_SECRET,
+      'jwt.accessExpiry': '15m',
+      'jwt.refreshExpiry': '7d',
+      'cookies.secure': false,
     };
-
     emailService = {
       sendVerificationEmail: jest.fn().mockResolvedValue(undefined),
       sendPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
     };
-
-    mockRes = {
-      cookie: jest.fn(),
-      clearCookie: jest.fn(),
-    };
+    mockRes = { cookie: jest.fn(), clearCookie: jest.fn() };
 
     module = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: getModelToken(User.name), useValue: userModel },
+        { provide: getModelToken(Session.name), useValue: sessionModel },
         { provide: JwtService, useValue: jwtService },
-        { provide: ConfigService, useValue: configService },
+        {
+          provide: ConfigService,
+          useValue: { get: jest.fn((key: string) => configValues[key]) },
+        },
         { provide: EmailService, useValue: emailService },
       ],
     }).compile();
 
-    service = module.get<AuthService>(AuthService);
+    service = module.get(AuthService);
 
-    // Valeurs par défaut de bcrypt pour chaque test
     (bcrypt.hash as jest.Mock).mockResolvedValue('$2b$12$hashedpassword');
     (bcrypt.compare as jest.Mock).mockResolvedValue(true);
   });
 
   afterEach(async () => {
-    await module.close(); // Ferme le TestingModule — évite le "worker process" warning
+    await module.close();
     jest.clearAllMocks();
   });
 
-  // ─── signup ─────────────────────────────────────────────────────────────
+  // ─── signup ───────────────────────────────────────────────────────────────
 
   describe('signup', () => {
-    const signupDto = {
+    const dto = {
       firstName: 'John',
       lastName: 'Doe',
       email: 'john@example.com',
@@ -125,409 +201,588 @@ describe('AuthService', () => {
       role: UserRole.CANDIDATE,
     };
 
-    it('should throw ConflictException if email already in use', async () => {
-      userModel.findOne.mockResolvedValue(createMockUser());
+    it('throws ConflictException if a verified account uses the email', async () => {
+      userModel.findOne.mockReturnValue(query(createMockUser()));
 
-      await expect(service.signup(signupDto)).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(service.signup(dto)).rejects.toThrow(ConflictException);
+      expect(userModel.create).not.toHaveBeenCalled();
     });
 
-    it('should hash the password with bcrypt (salt 12)', async () => {
-      userModel.findOne.mockResolvedValue(null);
-      userModel.create.mockResolvedValue(createMockUser());
+    it('throws ConflictException if an unverified account is still within its verification window', async () => {
+      userModel.findOne.mockReturnValue(
+        query(
+          createMockUser({
+            isEmailVerified: false,
+            emailVerificationExpiry: new Date(Date.now() + 3_600_000),
+          }),
+        ),
+      );
 
-      await service.signup(signupDto);
+      await expect(service.signup(dto)).rejects.toThrow(ConflictException);
+    });
+
+    it('releases an abandoned unverified account (expired link) instead of blocking the email', async () => {
+      userModel.findOne.mockReturnValue(
+        query(
+          createMockUser({
+            isEmailVerified: false,
+            emailVerificationExpiry: new Date(Date.now() - 1000),
+          }),
+        ),
+      );
+
+      await service.signup(dto);
+
+      expect(userModel.deleteOne).toHaveBeenCalledWith({
+        _id: USER_ID,
+        isEmailVerified: false,
+      });
+      expect(userModel.create).toHaveBeenCalled();
+    });
+
+    it('hashes the password with bcrypt (cost 12)', async () => {
+      userModel.findOne.mockReturnValue(query(null));
+
+      await service.signup(dto);
 
       expect(bcrypt.hash).toHaveBeenCalledWith('Password123!', 12);
     });
 
-    it('should create the user with hashed password and verification token', async () => {
-      userModel.findOne.mockResolvedValue(null);
-      userModel.create.mockResolvedValue(createMockUser());
+    it('stores only the SHA-256 digest of the verification token and emails the raw token', async () => {
+      userModel.findOne.mockReturnValue(query(null));
 
-      await service.signup(signupDto);
+      await service.signup(dto);
 
-      expect(userModel.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          firstName: 'John',
-          lastName: 'Doe',
-          email: 'john@example.com',
-          password: '$2b$12$hashedpassword',
-          role: UserRole.CANDIDATE,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-          emailVerificationToken: expect.any(String),
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-          emailVerificationExpiry: expect.any(Date),
-        }),
-      );
+      const [, rawToken] = emailService.sendVerificationEmail.mock.calls[0] as [
+        string,
+        string,
+      ];
+      const created = arg(userModel.create, 0, 0) as Record<string, unknown>;
+      expect(rawToken).toMatch(/^[a-f0-9]{64}$/);
+      expect(created.emailVerificationToken).toBe(sha256(rawToken));
+      expect(created.emailVerificationToken).not.toBe(rawToken);
+      expect(created.emailVerificationExpiry).toBeInstanceOf(Date);
+      expect(created.password).toBe('$2b$12$hashedpassword');
     });
 
-    it('should send verification email with the generated token', async () => {
-      userModel.findOne.mockResolvedValue(null);
-      userModel.create.mockResolvedValue(createMockUser());
-
-      await service.signup(signupDto);
-
-      expect(emailService.sendVerificationEmail).toHaveBeenCalledWith(
-        'john@example.com',
-        expect.any(String),
+    it('does not fail the signup when the SMTP server is unreachable', async () => {
+      userModel.findOne.mockReturnValue(query(null));
+      emailService.sendVerificationEmail.mockRejectedValue(
+        new Error('ECONNREFUSED'),
       );
-    });
 
-    it('should return a success message', async () => {
-      userModel.findOne.mockResolvedValue(null);
-      userModel.create.mockResolvedValue(createMockUser());
-
-      const result = await service.signup(signupDto);
-
-      expect(result).toEqual({
+      await expect(service.signup(dto)).resolves.toEqual({
         message: 'Account created. Check your email to verify your account.',
       });
+      await flushPromises();
     });
   });
 
-  // ─── verifyEmail ─────────────────────────────────────────────────────────
+  // ─── verifyEmail ──────────────────────────────────────────────────────────
 
   describe('verifyEmail', () => {
-    it('should throw BadRequestException if token is invalid or expired', async () => {
-      userModel.findOne.mockResolvedValue(null);
+    const token = 'ab'.repeat(32);
 
-      await expect(service.verifyEmail({ token: 'bad-token' })).rejects.toThrow(
+    it('throws BadRequestException if the token is invalid or expired', async () => {
+      userModel.findOneAndUpdate.mockReturnValue(query(null));
+
+      await expect(service.verifyEmail({ token })).rejects.toThrow(
         BadRequestException,
       );
     });
 
-    it('should mark email as verified and clear token fields', async () => {
-      const userDoc = createMockUser({ isEmailVerified: false });
-      userModel.findOne.mockResolvedValue(userDoc);
+    it('looks the user up by the token digest and clears the token atomically', async () => {
+      userModel.findOneAndUpdate.mockReturnValue(query(createMockUser()));
 
-      await service.verifyEmail({ token: 'valid-token' });
+      const result = await service.verifyEmail({ token });
 
-      expect(userDoc.isEmailVerified).toBe(true);
-      expect(userDoc.emailVerificationToken).toBeNull();
-      expect(userDoc.emailVerificationExpiry).toBeNull();
-      expect(userDoc.save).toHaveBeenCalled();
-    });
-
-    it('should return a success message', async () => {
-      userModel.findOne.mockResolvedValue(createMockUser());
-
-      const result = await service.verifyEmail({ token: 'valid-token' });
-
+      const [filter, update] = userModel.findOneAndUpdate.mock.calls[0] as [
+        Record<string, unknown>,
+        { $set: Record<string, unknown> },
+      ];
+      expect(filter.emailVerificationToken).toBe(sha256(token));
+      expect(update.$set).toEqual({
+        isEmailVerified: true,
+        emailVerificationToken: null,
+        emailVerificationExpiry: null,
+      });
       expect(result).toEqual({
         message: 'Email verified successfully. You can now log in.',
       });
     });
   });
 
-  // ─── login ───────────────────────────────────────────────────────────────
+  // ─── resendVerification ───────────────────────────────────────────────────
+
+  describe('resendVerification', () => {
+    it('returns the generic message for an unknown email (no email sent)', async () => {
+      userModel.findOne.mockReturnValue(query(null));
+
+      const result = await service.resendVerification({
+        email: 'nobody@example.com',
+      });
+
+      expect(result.message).toMatch(/If this account exists/);
+      expect(emailService.sendVerificationEmail).not.toHaveBeenCalled();
+    });
+
+    it('returns the same message for an already verified account (no email sent)', async () => {
+      userModel.findOne.mockReturnValue(query(createMockUser()));
+
+      const result = await service.resendVerification({
+        email: 'john@example.com',
+      });
+
+      expect(result.message).toMatch(/If this account exists/);
+      expect(emailService.sendVerificationEmail).not.toHaveBeenCalled();
+    });
+
+    it('issues a new hashed token for an unverified account', async () => {
+      const user = createMockUser({ isEmailVerified: false });
+      userModel.findOne.mockReturnValue(query(user));
+
+      await service.resendVerification({ email: 'john@example.com' });
+
+      const [, rawToken] = emailService.sendVerificationEmail.mock.calls[0] as [
+        string,
+        string,
+      ];
+      expect(user.emailVerificationToken).toBe(sha256(rawToken));
+      expect(user.save).toHaveBeenCalled();
+    });
+  });
+
+  // ─── login ────────────────────────────────────────────────────────────────
 
   describe('login', () => {
-    const loginDto = { email: 'john@example.com', password: 'Password123!' };
+    const dto = { email: 'john@example.com', password: 'Password123!' };
 
-    it('should throw UnauthorizedException if user does not exist', async () => {
-      userModel.findOne.mockResolvedValue(null);
+    it('throws 401 for an unknown email but still runs bcrypt (constant time)', async () => {
+      userModel.findOne.mockReturnValue(query(null));
 
-      await expect(
-        service.login(loginDto, mockRes as Response),
-      ).rejects.toThrow(UnauthorizedException);
+      await expect(service.login(dto, res())).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(bcrypt.compare).toHaveBeenCalledWith(
+        'Password123!',
+        DUMMY_PASSWORD_HASH,
+      );
     });
 
-    it('should throw UnauthorizedException if password is wrong', async () => {
-      userModel.findOne.mockResolvedValue(createMockUser());
+    it('throws 401 if the password is wrong', async () => {
+      userModel.findOne.mockReturnValue(query(createMockUser()));
       (bcrypt.compare as jest.Mock).mockResolvedValueOnce(false);
 
-      await expect(
-        service.login(loginDto, mockRes as Response),
-      ).rejects.toThrow(UnauthorizedException);
-    });
-
-    it('should throw UnauthorizedException if email is not verified', async () => {
-      userModel.findOne.mockResolvedValue(
-        createMockUser({ isEmailVerified: false }),
+      await expect(service.login(dto, res())).rejects.toThrow(
+        'Invalid credentials',
       );
-      // password matches, but email not verified
-
-      await expect(
-        service.login(loginDto, mockRes as Response),
-      ).rejects.toThrow(UnauthorizedException);
     });
 
-    it('should return accessToken and user data on success', async () => {
-      userModel.findOne.mockResolvedValue(createMockUser());
-      userModel.findByIdAndUpdate.mockResolvedValue(undefined);
-      jwtService.signAsync
-        .mockResolvedValueOnce('access-token')
-        .mockResolvedValueOnce('refresh-token');
+    it('throws 401 if the email is not verified', async () => {
+      userModel.findOne.mockReturnValue(
+        query(createMockUser({ isEmailVerified: false })),
+      );
 
-      const result = await service.login(loginDto, mockRes as Response);
+      await expect(service.login(dto, res())).rejects.toThrow(
+        'Please verify your email before logging in',
+      );
+    });
+
+    it('selects the password hash explicitly (select: false in the schema)', async () => {
+      const chain = query(createMockUser());
+      userModel.findOne.mockReturnValue(chain);
+
+      await service.login(dto, res());
+
+      expect(chain.select).toHaveBeenCalledWith('+password');
+    });
+
+    it('returns the access token and public user data only', async () => {
+      userModel.findOne.mockReturnValue(query(createMockUser()));
+
+      const result = await service.login(dto, res());
 
       expect(result).toEqual({
         accessToken: 'access-token',
         user: {
-          id: 'user-id-123',
+          id: USER_ID,
           firstName: 'John',
           lastName: 'Doe',
           email: 'john@example.com',
           role: UserRole.CANDIDATE,
+          avatarUrl: null,
         },
       });
     });
 
-    it('should set httpOnly refresh token cookie on success', async () => {
-      userModel.findOne.mockResolvedValue(createMockUser());
-      userModel.findByIdAndUpdate.mockResolvedValue(undefined);
-      jwtService.signAsync
-        .mockResolvedValueOnce('access-token')
-        .mockResolvedValueOnce('refresh-token');
+    it('creates a session storing the SHA-256 of the refresh token (never the token)', async () => {
+      userModel.findOne.mockReturnValue(query(createMockUser()));
 
-      await service.login(loginDto, mockRes as Response);
+      await service.login(dto, res());
+
+      const session = arg(sessionModel.create, 0, 0) as Record<string, unknown>;
+      expect(session.userId).toBe(USER_ID);
+      expect(session.tokenHash).toBe(sha256('refresh-token'));
+      expect(typeof session.familyId).toBe('string');
+      expect(session.expiresAt).toBeInstanceOf(Date);
+    });
+
+    it('signs a refresh token carrying the family id and a unique jti', async () => {
+      userModel.findOne.mockReturnValue(query(createMockUser()));
+
+      await service.login(dto, res());
+
+      const refreshPayload = arg(jwtService.signAsync, 1, 0) as Record<
+        string,
+        unknown
+      >;
+      const session = arg(sessionModel.create, 0, 0) as Record<string, unknown>;
+      expect(refreshPayload.sub).toBe(USER_ID.toString());
+      expect(refreshPayload.fam).toBe(session.familyId);
+      expect(typeof refreshPayload.jti).toBe('string');
+    });
+
+    it('sets an httpOnly, sameSite=lax cookie scoped to /api/auth', async () => {
+      userModel.findOne.mockReturnValue(query(createMockUser()));
+
+      await service.login(dto, res());
 
       expect(mockRes.cookie).toHaveBeenCalledWith(
-        'RefreshToken',
+        REFRESH_COOKIE,
+        'refresh-token',
+        expect.objectContaining({
+          httpOnly: true,
+          sameSite: 'lax',
+          path: REFRESH_COOKIE_PATH,
+          secure: false,
+        }),
+      );
+    });
+
+    it('marks the cookie secure when cookies.secure is enabled (production)', async () => {
+      configValues['cookies.secure'] = true;
+      userModel.findOne.mockReturnValue(query(createMockUser()));
+
+      await service.login(dto, res());
+
+      expect(mockRes.cookie).toHaveBeenCalledWith(
+        REFRESH_COOKIE,
+        'refresh-token',
+        expect.objectContaining({ secure: true }),
+      );
+    });
+
+    it(`revokes sessions beyond the ${MAX_SESSIONS_PER_USER} most recent`, async () => {
+      userModel.findOne.mockReturnValue(query(createMockUser()));
+      const stale = [{ _id: 'old-1' }, { _id: 'old-2' }];
+      const findChain = query(stale);
+      sessionModel.find.mockReturnValue(findChain);
+
+      await service.login(dto, res());
+
+      expect(findChain.skip).toHaveBeenCalledWith(MAX_SESSIONS_PER_USER);
+      expect(sessionModel.deleteMany).toHaveBeenCalledWith({
+        _id: { $in: ['old-1', 'old-2'] },
+      });
+    });
+  });
+
+  // ─── refresh ──────────────────────────────────────────────────────────────
+
+  describe('refresh', () => {
+    beforeEach(() => {
+      userModel.findById.mockReturnValue(query(createMockUser()));
+      sessionModel.findOneAndUpdate.mockReturnValue(query(createMockSession()));
+    });
+
+    it('throws 401 if the session does not exist (logged out / revoked)', async () => {
+      sessionModel.findOne.mockReturnValue(query(null));
+
+      await expect(
+        service.refresh(
+          USER_ID.toString(),
+          'family-1',
+          'current-refresh-token',
+          res(),
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockRes.clearCookie).toHaveBeenCalled();
+    });
+
+    it('throws 401 if the session is expired', async () => {
+      sessionModel.findOne.mockReturnValue(
+        query(createMockSession({ expiresAt: new Date(Date.now() - 1) })),
+      );
+
+      await expect(
+        service.refresh(
+          USER_ID.toString(),
+          'family-1',
+          'current-refresh-token',
+          res(),
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('rotates the token: compare-and-swap on the current digest, new cookie, new access token', async () => {
+      const session = createMockSession();
+      sessionModel.findOne.mockReturnValue(query(session));
+
+      const result = await service.refresh(
+        USER_ID.toString(),
+        'family-1',
+        'current-refresh-token',
+        res(),
+      );
+
+      expect(result).toEqual({ accessToken: 'access-token' });
+      const [filter, update] = sessionModel.findOneAndUpdate.mock.calls[0] as [
+        Record<string, unknown>,
+        { $set: Record<string, unknown> },
+      ];
+      expect(filter).toEqual({
+        _id: session._id,
+        tokenHash: sha256('current-refresh-token'),
+      });
+      expect(update.$set.tokenHash).toBe(sha256('refresh-token'));
+      expect(update.$set.previousTokenHash).toBe(
+        sha256('current-refresh-token'),
+      );
+      expect(mockRes.cookie).toHaveBeenCalledWith(
+        REFRESH_COOKIE,
         'refresh-token',
         expect.objectContaining({ httpOnly: true }),
       );
     });
 
-    it('should store hashed refresh token in DB', async () => {
-      userModel.findOne.mockResolvedValue(createMockUser());
-      userModel.findByIdAndUpdate.mockResolvedValue(undefined);
-      jwtService.signAsync
-        .mockResolvedValueOnce('access-token')
-        .mockResolvedValueOnce('refresh-token');
-
-      await service.login(loginDto, mockRes as Response);
-
-      expect(userModel.findByIdAndUpdate).toHaveBeenCalledWith('user-id-123', {
-        refreshToken: '$2b$12$hashedpassword',
+    it('detects the replay of an already rotated token and revokes the whole session', async () => {
+      const session = createMockSession({
+        tokenHash: sha256('newer-token'),
+        previousTokenHash: sha256('older-token'),
+        rotatedAt: new Date(Date.now() - ROTATION_GRACE_MS - 1000),
       });
+      sessionModel.findOne.mockReturnValue(query(session));
+
+      await expect(
+        service.refresh(USER_ID.toString(), 'family-1', 'older-token', res()),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(sessionModel.deleteOne).toHaveBeenCalledWith({
+        _id: session._id,
+      });
+      expect(sessionModel.findOneAndUpdate).not.toHaveBeenCalled();
+    });
+
+    it('tolerates a concurrent refresh (just-rotated token within the grace window): 401 but session kept', async () => {
+      sessionModel.findOne.mockReturnValue(
+        query(
+          createMockSession({
+            tokenHash: sha256('newer-token'),
+            previousTokenHash: sha256('older-token'),
+            rotatedAt: new Date(),
+          }),
+        ),
+      );
+
+      await expect(
+        service.refresh(USER_ID.toString(), 'family-1', 'older-token', res()),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(sessionModel.deleteOne).not.toHaveBeenCalled();
+    });
+
+    it('throws 401 if a concurrent refresh won the compare-and-swap', async () => {
+      sessionModel.findOne.mockReturnValue(query(createMockSession()));
+      sessionModel.findOneAndUpdate.mockReturnValue(query(null));
+
+      await expect(
+        service.refresh(
+          USER_ID.toString(),
+          'family-1',
+          'current-refresh-token',
+          res(),
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockRes.cookie).not.toHaveBeenCalled();
+    });
+
+    it('revokes the session if the user no longer exists', async () => {
+      const session = createMockSession();
+      sessionModel.findOne.mockReturnValue(query(session));
+      userModel.findById.mockReturnValue(query(null));
+
+      await expect(
+        service.refresh(
+          USER_ID.toString(),
+          'family-1',
+          'current-refresh-token',
+          res(),
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(sessionModel.deleteOne).toHaveBeenCalledWith({
+        _id: session._id,
+      });
+    });
+
+    it('distinguishes two REAL refresh tokens of the same user (regression: bcrypt 72-byte truncation)', async () => {
+      // Real JWTs signed in the same second share a long common prefix
+      // (header + sub). bcrypt only compared their first 72 bytes and
+      // considered them equal; the SHA-256 digests must differ.
+      const realJwt = new JwtService();
+      const sign = (jti: string) =>
+        realJwt.signAsync(
+          { sub: USER_ID.toString(), fam: 'family-1', jti },
+          { secret: REFRESH_SECRET, expiresIn: '7d' },
+        );
+      const [older, newer] = await Promise.all([sign('jti-1'), sign('jti-2')]);
+      expect(older.slice(0, 72)).toBe(newer.slice(0, 72));
+
+      const session = createMockSession({
+        tokenHash: sha256(newer),
+        previousTokenHash: sha256(older),
+        rotatedAt: new Date(Date.now() - ROTATION_GRACE_MS - 1000),
+      });
+      sessionModel.findOne.mockReturnValue(query(session));
+
+      await expect(
+        service.refresh(USER_ID.toString(), 'family-1', older, res()),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(sessionModel.deleteOne).toHaveBeenCalled();
     });
   });
 
-  // ─── refresh ─────────────────────────────────────────────────────────────
-
-  describe('refresh', () => {
-    it('should throw UnauthorizedException if user is not found', async () => {
-      userModel.findById.mockResolvedValue(null);
-
-      await expect(
-        service.refresh('user-id', 'some-token', mockRes as Response),
-      ).rejects.toThrow(UnauthorizedException);
-    });
-
-    it('should throw UnauthorizedException if no refresh token is stored', async () => {
-      userModel.findById.mockResolvedValue(
-        createMockUser({ refreshToken: null }),
-      );
-
-      await expect(
-        service.refresh('user-id', 'some-token', mockRes as Response),
-      ).rejects.toThrow(UnauthorizedException);
-    });
-
-    it('should throw UnauthorizedException if stored token does not match', async () => {
-      userModel.findById.mockResolvedValue(
-        createMockUser({ refreshToken: '$2b$10$hashed' }),
-      );
-      (bcrypt.compare as jest.Mock).mockResolvedValueOnce(false);
-
-      await expect(
-        service.refresh('user-id', 'wrong-token', mockRes as Response),
-      ).rejects.toThrow(UnauthorizedException);
-    });
-
-    it('should return a new accessToken on success', async () => {
-      userModel.findById.mockResolvedValue(
-        createMockUser({ refreshToken: '$2b$10$hashed' }),
-      );
-      userModel.findByIdAndUpdate.mockResolvedValue(undefined);
-      jwtService.signAsync
-        .mockResolvedValueOnce('new-access-token')
-        .mockResolvedValueOnce('new-refresh-token');
-
-      const result = await service.refresh(
-        'user-id-123',
-        'valid-refresh-token',
-        mockRes as Response,
-      );
-
-      expect(result).toEqual({ accessToken: 'new-access-token' });
-    });
-
-    it('should rotate refresh token (store new hash and set new cookie)', async () => {
-      userModel.findById.mockResolvedValue(
-        createMockUser({ refreshToken: '$2b$10$hashed' }),
-      );
-      userModel.findByIdAndUpdate.mockResolvedValue(undefined);
-      jwtService.signAsync
-        .mockResolvedValueOnce('new-access-token')
-        .mockResolvedValueOnce('new-refresh-token');
-
-      await service.refresh(
-        'user-id-123',
-        'valid-refresh-token',
-        mockRes as Response,
-      );
-
-      expect(userModel.findByIdAndUpdate).toHaveBeenCalledWith('user-id-123', {
-        refreshToken: '$2b$12$hashedpassword',
-      });
-      expect(mockRes.cookie).toHaveBeenCalledWith(
-        'RefreshToken',
-        'new-refresh-token',
-        expect.objectContaining({ httpOnly: true }),
-      );
-    });
-  });
-
-  // ─── logout ──────────────────────────────────────────────────────────────
+  // ─── logout ───────────────────────────────────────────────────────────────
 
   describe('logout', () => {
-    it('should clear the refresh token in the database', async () => {
-      userModel.findByIdAndUpdate.mockResolvedValue(undefined);
-
-      await service.logout('user-id-123', mockRes as Response);
-
-      expect(userModel.findByIdAndUpdate).toHaveBeenCalledWith('user-id-123', {
-        refreshToken: null,
+    it("revokes the session of the cookie's token family", async () => {
+      jwtService.verifyAsync.mockResolvedValue({
+        sub: USER_ID.toString(),
+        fam: 'family-1',
+        jti: 'x',
       });
-    });
 
-    it('should clear the RefreshToken cookie', async () => {
-      userModel.findByIdAndUpdate.mockResolvedValue(undefined);
+      const result = await service.logout(
+        USER_ID.toString(),
+        'cookie-token',
+        res(),
+      );
 
-      await service.logout('user-id-123', mockRes as Response);
-
-      expect(mockRes.clearCookie).toHaveBeenCalledWith('RefreshToken');
-    });
-
-    it('should return a success message', async () => {
-      userModel.findByIdAndUpdate.mockResolvedValue(undefined);
-
-      const result = await service.logout('user-id-123', mockRes as Response);
-
+      expect(sessionModel.deleteOne).toHaveBeenCalledWith({
+        familyId: 'family-1',
+        userId: USER_ID.toString(),
+      });
       expect(result).toEqual({ message: 'Logged out successfully' });
+    });
+
+    it("does not revoke a session belonging to another user's token", async () => {
+      jwtService.verifyAsync.mockResolvedValue({
+        sub: 'another-user',
+        fam: 'family-x',
+        jti: 'x',
+      });
+
+      await service.logout(USER_ID.toString(), 'cookie-token', res());
+
+      expect(sessionModel.deleteOne).not.toHaveBeenCalled();
+    });
+
+    it('ignores an invalid or expired cookie and still clears it', async () => {
+      jwtService.verifyAsync.mockRejectedValue(new Error('jwt expired'));
+
+      await service.logout(USER_ID.toString(), 'bad-token', res());
+
+      expect(sessionModel.deleteOne).not.toHaveBeenCalled();
+      expect(mockRes.clearCookie).toHaveBeenCalledWith(
+        REFRESH_COOKIE,
+        expect.objectContaining({ path: REFRESH_COOKIE_PATH }),
+      );
+    });
+
+    it('works without any refresh cookie', async () => {
+      await service.logout(USER_ID.toString(), undefined, res());
+
+      expect(jwtService.verifyAsync).not.toHaveBeenCalled();
+      expect(mockRes.clearCookie).toHaveBeenCalled();
     });
   });
 
   // ─── forgotPassword ───────────────────────────────────────────────────────
 
   describe('forgotPassword', () => {
-    it('should return the same message if email is not found (prevents email enumeration)', async () => {
-      userModel.findOne.mockResolvedValue(null);
+    const generic = {
+      message: 'If this email exists, a reset link has been sent.',
+    };
 
-      const result = await service.forgotPassword({
-        email: 'unknown@example.com',
-      });
+    it('returns the same message for an unknown email and sends nothing', async () => {
+      userModel.findOne.mockReturnValue(query(null));
 
-      expect(result).toEqual({
-        message: 'If this email exists, a reset link has been sent.',
-      });
+      await expect(
+        service.forgotPassword({ email: 'unknown@example.com' }),
+      ).resolves.toEqual(generic);
       expect(emailService.sendPasswordResetEmail).not.toHaveBeenCalled();
     });
 
-    it('should set a reset token and expiry on the user', async () => {
-      const userDoc = createMockUser({
-        passwordResetToken: null,
-        passwordResetExpiry: null,
-      });
-      userModel.findOne.mockResolvedValue(userDoc);
+    it('stores the SHA-256 of the reset token with a 1h expiry', async () => {
+      const user = createMockUser();
+      userModel.findOne.mockReturnValue(query(user));
 
       await service.forgotPassword({ email: 'john@example.com' });
 
-      expect(userDoc.passwordResetToken).toBeTruthy();
-      expect(userDoc.passwordResetExpiry).toBeInstanceOf(Date);
-      expect(userDoc.save).toHaveBeenCalled();
+      const [, rawToken] = emailService.sendPasswordResetEmail.mock
+        .calls[0] as [string, string];
+      expect(user.passwordResetToken).toBe(sha256(rawToken));
+      const expiry = user.passwordResetExpiry as unknown as Date;
+      expect(expiry.getTime()).toBeGreaterThan(Date.now() + 3_500_000);
+      expect(user.save).toHaveBeenCalled();
     });
 
-    it('should send a password reset email', async () => {
-      const userDoc = createMockUser();
-      userModel.findOne.mockResolvedValue(userDoc);
+    it('returns the generic message even if the email cannot be sent', async () => {
+      userModel.findOne.mockReturnValue(query(createMockUser()));
+      emailService.sendPasswordResetEmail.mockRejectedValue(new Error('SMTP'));
 
-      await service.forgotPassword({ email: 'john@example.com' });
-
-      expect(emailService.sendPasswordResetEmail).toHaveBeenCalledWith(
-        'john@example.com',
-        expect.any(String),
-      );
-    });
-
-    it('should return a success message when email is found', async () => {
-      userModel.findOne.mockResolvedValue(createMockUser());
-
-      const result = await service.forgotPassword({
-        email: 'john@example.com',
-      });
-
-      expect(result).toEqual({
-        message: 'If this email exists, a reset link has been sent.',
-      });
+      await expect(
+        service.forgotPassword({ email: 'john@example.com' }),
+      ).resolves.toEqual(generic);
+      await flushPromises();
     });
   });
 
   // ─── resetPassword ────────────────────────────────────────────────────────
 
   describe('resetPassword', () => {
-    it('should throw BadRequestException if token is invalid or expired', async () => {
-      userModel.findOne.mockResolvedValue(null);
+    const dto = { token: 'cd'.repeat(32), newPassword: 'NewPass123!' };
 
-      await expect(
-        service.resetPassword({
-          token: 'bad-token',
-          newPassword: 'NewPass123!',
-        }),
-      ).rejects.toThrow(BadRequestException);
-    });
+    it('throws BadRequestException if the token is invalid or expired', async () => {
+      userModel.findOne.mockReturnValue(query(null));
 
-    it('should hash the new password with bcrypt (salt 12)', async () => {
-      const userDoc = createMockUser({
-        passwordResetToken: 'valid-token',
-        passwordResetExpiry: new Date(Date.now() + 3_600_000),
-      });
-      userModel.findOne.mockResolvedValue(userDoc);
-
-      await service.resetPassword({
-        token: 'valid-token',
-        newPassword: 'NewPass123!',
-      });
-
-      expect(bcrypt.hash).toHaveBeenCalledWith('NewPass123!', 12);
-    });
-
-    it('should clear reset token, expiry, and refreshToken (invalidate all sessions)', async () => {
-      const userDoc = createMockUser({
-        passwordResetToken: 'valid-token',
-        passwordResetExpiry: new Date(Date.now() + 3_600_000),
-        refreshToken: '$2b$10$somehash',
-      });
-      userModel.findOne.mockResolvedValue(userDoc);
-
-      await service.resetPassword({
-        token: 'valid-token',
-        newPassword: 'NewPass123!',
-      });
-
-      expect(userDoc.passwordResetToken).toBeNull();
-      expect(userDoc.passwordResetExpiry).toBeNull();
-      expect(userDoc.refreshToken).toBeNull();
-      expect(userDoc.save).toHaveBeenCalled();
-    });
-
-    it('should return a success message', async () => {
-      userModel.findOne.mockResolvedValue(
-        createMockUser({
-          passwordResetToken: 'valid-token',
-          passwordResetExpiry: new Date(Date.now() + 3_600_000),
-        }),
+      await expect(service.resetPassword(dto)).rejects.toThrow(
+        BadRequestException,
       );
+    });
 
-      const result = await service.resetPassword({
-        token: 'valid-token',
-        newPassword: 'NewPass123!',
+    it('looks the user up by token digest, hashes the new password and clears the token', async () => {
+      const user = createMockUser({
+        passwordResetToken: sha256(dto.token),
+        passwordResetExpiry: new Date(Date.now() + 3_600_000),
       });
+      userModel.findOne.mockReturnValue(query(user));
 
+      await service.resetPassword(dto);
+
+      const filter = arg(userModel.findOne, 0, 0) as Record<string, unknown>;
+      expect(filter.passwordResetToken).toBe(sha256(dto.token));
+      expect(bcrypt.hash).toHaveBeenCalledWith('NewPass123!', 12);
+      expect(user.passwordResetToken).toBeNull();
+      expect(user.passwordResetExpiry).toBeNull();
+      expect(user.save).toHaveBeenCalled();
+    });
+
+    it('revokes every session of the user (all refresh tokens invalid)', async () => {
+      userModel.findOne.mockReturnValue(query(createMockUser()));
+
+      const result = await service.resetPassword(dto);
+
+      expect(sessionModel.deleteMany).toHaveBeenCalledWith({
+        userId: USER_ID,
+      });
       expect(result).toEqual({
         message: 'Password reset successfully. Please log in.',
       });
