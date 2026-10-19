@@ -1,98 +1,82 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# PROFYLE — backend (NestJS 11)
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+REST API of the PROFYLE recruitment platform: NestJS 11 + TypeScript,
+MongoDB (Mongoose 9: users, sessions) and PostgreSQL (Prisma 7 + `@prisma/adapter-pg`:
+companies, jobs, applications, saved jobs), AWS S3 (avatars, logos, CVs).
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+All routes are prefixed with `/api`. Swagger UI: `/api/docs` (disabled by default
+when `NODE_ENV=production`). Liveness probe: `GET /api/health`.
 
-## Description
+## Modules
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+| Module | Routes |
+|---|---|
+| auth | `POST /auth/signup · verify-email · resend-verification · login · refresh · logout · forgot-password · reset-password` |
+| users | `GET/PATCH /users/me` · `POST/DELETE /users/me/avatar` · `POST/DELETE /users/me/cv` · `GET /users/me/cv-url` |
+| companies | `POST /companies` · `GET /companies` · `GET /companies/mine` · `GET/PATCH/DELETE /companies/:id` · `POST/DELETE /companies/:id/logo` |
+| jobs | `POST /jobs` · `GET /jobs` (filters, pagination) · `GET /jobs/mine` · `GET/PATCH/DELETE /jobs/:id` |
+| applications | `POST/GET /jobs/:jobId/applications` · `GET /applications/mine` · `PATCH /applications/:id/status` · `PATCH /applications/:id/withdraw` · `GET /applications/:id/cv-url` |
+| saved-jobs | `POST/DELETE /jobs/:id/save` · `GET /saved-jobs` |
 
-## Project setup
+A daily cron job (03:00) deletes withdrawn applications 30 days after withdrawal.
 
-```bash
-$ npm install
-```
+## Security choices
 
-## Compile and run the project
+- **Auth**: access JWT (15 min, `Authorization: Bearer`) + refresh JWT (7 days) in an
+  `httpOnly`, `SameSite=Lax` cookie scoped to `/api/auth` (`Secure` forced in production).
+  Refresh tokens are rotated on every use; only their SHA-256 digest is stored
+  (`sessions` collection). Replaying an already-rotated token revokes the session.
+  A password reset revokes every session. Distinct access/refresh secrets are enforced at startup.
+- **Validation**: global `ValidationPipe` (`whitelist`, `forbidNonWhitelisted`, no implicit
+  type coercion). `PATCH /users/me` is validated against the DTO of the caller's role with an
+  explicit allow-list of fields (role, email, password, avatarUrl, cvKey… are rejected).
+- **Rate limiting** (`@nestjs/throttler`): global per-IP limit, stricter per-IP limits on the
+  auth routes and per-email limits on login / forgot-password / resend-verification. Errors: 429.
+- **Uploads**: multer size limits enforced while streaming (avatar/logo 2 MB, CV 5 MB → 413),
+  real file type checked from magic bytes (JPEG/PNG/WebP, PDF). S3 keys are generated by the
+  server and validated (prefix + UUID) before any delete or presigned URL.
+- **Authorization**: role guard + ownership checks (company owner) on every write and on the
+  recruiter's access to applications and candidate CVs (presigned URL, 15 min).
+- Verification / reset tokens are stored as SHA-256 digests; emails are masked in logs;
+  login runs bcrypt even for unknown emails; forgot-password and resend-verification always
+  return the same message.
 
-```bash
-# development
-$ npm run start
+## Environment
 
-# watch mode
-$ npm run start:dev
+See `.env.example`. Required: `MONGODB_URI`, `DATABASE_URL`, `JWT_ACCESS_SECRET`,
+`JWT_REFRESH_SECRET` (≥ 32 chars, different), `AWS_*`, `EMAIL_*`. Optional:
 
-# production mode
-$ npm run start:prod
-```
+| Variable | Default | Role |
+|---|---|---|
+| `TRUST_PROXY` | `1` | Express `trust proxy` (hops, `loopback`, subnet or `false`). Set `false` if the API is exposed without a reverse proxy, otherwise `X-Forwarded-For` can be spoofed to bypass rate limiting. |
+| `THROTTLE_TTL` / `THROTTLE_LIMIT` | `60000` / `100` | Global rate limit window (ms) and requests per IP and route |
+| `COOKIE_SECURE` | `false` | `Secure` refresh cookie outside production (always on in production) |
+| `SWAGGER_ENABLED` | `true` (`false` in production) | Expose `/api/docs` |
 
-## Run tests
-
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Commands
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm ci
+npx prisma generate
+npx prisma migrate deploy        # apply migrations (DATABASE_URL)
+npm run build && npm run start:prod   # node dist/main
+npm run start:dev
+
+npm test                          # unit tests (Jest, mocks)
+npm run lint
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### End-to-end tests
 
-## Resources
+`npm run test:e2e` boots the real `AppModule` against **disposable** databases, which are
+**wiped** (refused unless local, or `E2E_ALLOW_REMOTE_DB=true`). Migrations are applied
+automatically. Only the two URLs come from the environment; the `.env` file is never read.
 
-Check out a few resources that may come in handy when working with NestJS:
+```bash
+MONGODB_URI=mongodb://127.0.0.1:27018/profyle_api \
+DATABASE_URL=postgresql://user@127.0.0.1:5432/profyle_api \
+npm run test:e2e
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Emails are captured by a fake `EmailService` (test-only provider override) and S3 commands
+never leave the process; production code paths are unchanged.

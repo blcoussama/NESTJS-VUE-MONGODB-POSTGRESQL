@@ -56,20 +56,21 @@ Il démontre :
 | @nestjs/swagger | — | Documentation | OpenAPI/Swagger auto-généré |
 | @nestjs/throttler | — | Rate limiting | Protection brute force |
 
-### Frontend (à venir)
+### Frontend (v2 — Vue 3, dossier `frontend/`)
 | Technologie | Rôle |
 |---|---|
-| React 19 | UI |
+| Vue 3.5 (Composition API) | UI |
 | TypeScript | Type safety |
-| Redux Toolkit 2+ | State management |
-| React Router 7+ | Navigation |
-| Tailwind CSS | Styles |
-| Shadcn/UI | Composants |
+| Pinia | State management (auth, jobs, applications, chat, company, profile, ui) |
+| Vue Router | Navigation + gardes par rôle |
+| Tailwind CSS 4 | Styles |
 | Vite | Build tool |
-| Axios | HTTP client |
-| Socket.io-client | WebSocket client |
-| React Testing Library | Tests composants |
-| Cypress + Playwright | Tests E2E |
+| Axios | HTTP client (refresh silencieux partagé sur 401, jeton en mémoire uniquement) |
+| Socket.io-client | Chat temps réel (namespace `/chat`) |
+| Vitest + @vue/test-utils | Tests unitaires (110) |
+| Playwright (`e2e/`) | Tests navigateur de bout en bout |
+
+> Décision 2026-10-19 : frontend en **Vue 3 + Pinia** (et non React 19 comme prévu initialement) pour que le CV soit exact. L'ancien frontend React v1 est archivé intact dans `frontend-react-v1/` (il appelle l'ancienne API Express et ne fonctionne plus).
 
 ---
 
@@ -124,8 +125,8 @@ PROFYLE/
 │   │   │   └── prisma/
 │   │   │       ├── prisma.service.ts ← PrismaClient + lifecycle (connect/disconnect)
 │   │   │       └── prisma.module.ts  ← @Global() : injectable partout sans re-import
-│   │   ├── modules/                  ← (à créer : auth, users, companies, jobs, etc.)
-│   │   ├── common/                   ← (à créer : guards, interceptors, filters, decorators)
+│   │   ├── modules/                  ← auth, users, companies, jobs, applications, saved-jobs, chat
+│   │   ├── common/                   ← guards, decorators, filters, throttle, storage (S3), files, health, validation
 │   │   ├── app.module.ts             ← Module racine : ConfigModule + Mongoose + Prisma
 │   │   └── main.ts                   ← Helmet + cookies + CORS + Swagger + ValidationPipe
 │   ├── prisma/
@@ -136,7 +137,11 @@ PROFYLE/
 │   ├── prisma.config.ts              ← Config Prisma 7 (lit DATABASE_URL)
 │   ├── tsconfig.json                 ← module: commonjs, strict TypeScript
 │   └── package.json
-├── frontend/                         ← React 19 + TypeScript (à migrer)
+├── frontend/                         ← Vue 3 + Pinia + TypeScript (v2)
+├── frontend-react-v1/                ← ancien frontend React (archivé)
+├── e2e/                              ← tests navigateur Playwright (pile complète)
+├── .github/workflows/ci.yml          ← CI (backend, frontend, docker, sécurité)
+├── docker-compose.yml                ← mongo, postgres, migrate, backend, frontend
 ├── .gitignore                        ← Inclut CLAUDE-CODE-CHAT-HISTORY/, RAPPORT-LATEX/
 └── CLAUDE.md                         ← Ce fichier
 ```
@@ -323,8 +328,8 @@ Cette mise à jour se fait **avant le commit final** de chaque feature branch.
 - [x] `users.controller.ts` — 7 endpoints, @UseGuards(JwtAuthGuard) au niveau classe, FileInterceptor pour uploads
 - [x] `users.module.ts` — assemblage + exports UsersService
 - [x] `app.module.ts` — ajout UsersModule
-- [x] AWS S3 setup : bucket `profyle-uploads-820242925162-eu-west-3-an` (Paris, Account Regional namespace)
-- [x] AWS IAM : IAM Admin `oussama-admin` (MFA activé) + IAM App User `profyle-s3-user` (inline policy moindre privilège)
+- [x] AWS S3 setup : bucket `profyle-uploads-<account-id>-eu-west-3-an` (Paris, Account Regional namespace)
+- [x] AWS IAM : utilisateur IAM administrateur (MFA activé) + utilisateur IAM applicatif dédié à S3 (inline policy moindre privilège)
 - [x] Bucket policy : public uniquement sur `avatars/*`, CVs privés via presigned URLs
 - [x] AWS Billing : accès billing activé pour IAM + Zero Spend Budget `profyle-zero-spend`
 - [x] Build `npm run build` sans erreurs, ESLint 0 erreurs
@@ -343,20 +348,26 @@ Cette mise à jour se fait **avant le commit final** de chaque feature branch.
 - [x] `companies.service.spec.ts` — 24 Jest tests (24/24 ✓)
 - [x] Build `npm run build` sans erreurs, ESLint 0 erreurs
 
-### 🔄 En cours
-- [ ] Swagger tests (démarrer le serveur, tester les 6 endpoints)
-- [ ] Commit + PR + merge `feat/companies` → `main`
+### ✅ Complété — finalisation v2 (2026-10-19, non commité : voir « En cours »)
+- [x] Sécurité (audit de sécurité de la v2) : `PATCH /users/me` validé par rôle, sessions SHA-256 + rotation + détection de rejeu, Throttler branché (global + auth par IP/e-mail), limites multer + magic bytes, Swagger off en prod, filtres d'erreurs Prisma/Mongo, `npm audit --omit=dev` = 0
+- [x] `feat/jobs` — CRUD, filtres, pagination, `GET /jobs/mine`, `applicationsCount`
+- [x] `feat/applications` — postuler, statuts en transaction, retrait + purge planifiée (`@nestjs/schedule`), CV présigné pour le recruteur
+- [x] Favoris (`saved-jobs`), `GET /companies/mine`, `GET /api/health`
+- [x] `feat/chat` — Mongo `messages` + REST + gateway Socket.io authentifiée (JWT au handshake), présence, non-lus, typing, rate limit, règle « reliés par une candidature »
+- [x] `feat/frontend-migration` — **Vue 3 + Pinia** (toutes les pages du contrat `docs/API-V2-CONTRACT.md`)
+- [x] `feat/docker-cicd` — Dockerfiles (backend + cible migrate, frontend nginx), docker-compose, `.github/workflows/ci.yml`, README racine
+- [x] Tests : backend 369 unitaires + 98 e2e (vraies bases), frontend 110 Vitest, 2 scénarios Playwright (pile complète + chat temps réel)
 
-### 📋 À faire (dans l'ordre)
-- [ ] Swagger tests + Commit + PR + merge `feat/companies` → `main`
-- [ ] `feat/jobs` — Module jobs : CRUD offres, filtres, pagination
-- [ ] `feat/jobs` — Module jobs : CRUD offres, filtres, pagination
-- [ ] `feat/applications` — Module applications : postuler, statuts, TTL
-- [ ] `feat/chat` — Module messages + Socket.io WebSockets
-- [ ] `feat/graphql` — GraphQL endpoint (en plus REST)
-- [ ] `feat/testing` — Tests Jest + Supertest + Testcontainers + k6
-- [ ] `feat/frontend-migration` — React 19 + TypeScript migration
-- [ ] `feat/docker-cicd` — Dockerfile + docker-compose + GitHub Actions
+### 🔄 En cours
+- [ ] Relire `git diff`, créer les branches/commits (Conventional Commits) et pousser
+- [ ] Premier run GitHub Actions : valider les builds Docker et le test de fumée (jamais exécutés localement : Docker indisponible dans WSL)
+
+### 📋 À faire
+- [ ] Brancher les tests Playwright (`e2e/`) dans la CI
+- [ ] `feat/graphql` — GraphQL endpoint (en plus REST) — non commencé
+- [ ] Tests de charge k6, Testcontainers
+- [ ] Déploiement réel (hébergement, TLS, domaine) — aucun job de déploiement aujourd'hui
+- [ ] Tester S3 contre un vrai bucket (les tests utilisent un S3 simulé)
 
 ---
 
@@ -421,6 +432,11 @@ export class CreateJobDto {
 | ESLint `no-floating-promises` sur `bootstrap()` dans `main.ts` | Promise non-awaited et non-gérée | Préfixer avec `void` : `void bootstrap()` |
 | ESLint `no-unnecessary-type-assertion` + `no-unsafe-assignment` sur `as any` dans generateTokens | `config.get()` sans type param retourne déjà `any`, donc `as any` est redondant | Utiliser `config.get<StringValue>()` — supprime le besoin du cast et des eslint-disable |
 | `invalid input syntax for type uuid: "69f907..."` → 500 sur POST /companies | `ownerId String @db.Uuid` : un MongoDB ObjectId (24 chars hex) n'est pas un UUID PostgreSQL (36 chars avec tirets) | Changer en `String` (TEXT) pour tous les champs cross-DB qui référencent des ObjectIds MongoDB : `ownerId`, `recruiterId`, `applicantId`, `userId` |
+| `@nestjs/websockets@12` : conflit de peer `@nestjs/common@^12` | La dernière version vise NestJS 12 | Installer `@nestjs/websockets@^11` et `@nestjs/platform-socket.io@^11` |
+| e2e Jest : `uuid` 13 est ESM-only | Jest ne transforme pas les modules ESM de `node_modules` | Remplacé par `crypto.randomUUID()` (dépendance `uuid` supprimée) |
+| e2e Jest + mongodb@7 : `Missing required sub-document 'driver'` | Le driver fait `await import('os')`, qui échoue dans le bac à sable VM de Jest | Passer `runtimeAdapters: { os }` à `MongooseModule.forRoot` |
+| `nest build` produit `dist/src/main.js` | `prisma.config.ts` à la racine est inclus dans la compilation | L'exclure dans `tsconfig.build.json` |
+| Refresh toujours refusé (trouvé par l'e2e) | `userId` de session comparé comme string alors que stocké en `ObjectId` | Stocker/caster en `Types.ObjectId` |
 
 ---
 
