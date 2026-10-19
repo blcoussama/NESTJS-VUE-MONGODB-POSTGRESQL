@@ -1,0 +1,14 @@
+{
+  "name": "profyle-e2e",
+  "private": true,
+  "description": "Tests navigateur de bout en bout de PROFYLE v2 (Playwright)",
+  "scripts": {
+    "stack": "bash ./run-stack.sh",
+    "test": "playwright test -c playwright.config.js",
+    "install-browser": "playwright install chromium",
+    "stop": "[ -f .tmp/pids ] && xargs -r kill < .tmp/pids; rm -f .tmp/pids"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1"
+  }
+}
