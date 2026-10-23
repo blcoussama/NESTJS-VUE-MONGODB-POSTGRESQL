@@ -12,7 +12,7 @@ Email : belcadioussama.eng@gmail.com | GitHub : blcoussama
 Elle permet à des recruteurs de poster des offres d'emploi et à des candidats de postuler,
 communiquer en temps réel et gérer leur profil.
 
-**Repo GitHub :** `git@github.com:blcoussama/PROFYLE.git`
+**Repo GitHub :** `git@github.com:blcoussama/NESTJS-VUE-MONGODB-POSTGRESQL.git` (ex-PROFYLE, renommé le 2026-10-23)
 **Version :** v2 (réécriture NestJS depuis Express)
 
 ---
