@@ -106,6 +106,9 @@
     "testEnvironment": "node"
   },
   "overrides": {
-    "js-yaml": "^4.3.2"
+    "js-yaml": "^4.3.2",
+    "@nestjs/cli": {
+      "webpack": "^5.112.0"
+    }
   }
 }
