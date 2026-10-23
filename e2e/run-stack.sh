@@ -37,11 +37,14 @@ export JWT_REFRESH_SECRET="$(python3 -c 'import secrets;print(secrets.token_hex(
 export JWT_ACCESS_EXPIRY=15m JWT_REFRESH_EXPIRY=7d
 export AWS_REGION=eu-west-3 AWS_ACCESS_KEY_ID=AKIAFAKEE2ETEST00000 AWS_SECRET_ACCESS_KEY=fake-e2e-secret-key-not-used-anywhere AWS_BUCKET_NAME=profyle-e2e-fake
 export EMAIL_HOST=127.0.0.1 EMAIL_PORT=2525 EMAIL_USER=e2e EMAIL_PASS=e2e EMAIL_FROM=no-reply@example.com
-(cd "$ROOT/backend" && nohup node dist/main > "$TMP/backend.log" 2>&1 & echo $! >> "$TMP/pids")
+# « exec » : le PID enregistré est celui du processus lui-même (pas d'un sous-shell), pour que l'arrêt le tue vraiment
+(cd "$ROOT/backend" && exec nohup node dist/main > "$TMP/backend.log" 2>&1) &
+echo $! >> "$TMP/pids"
 
 (cd "$ROOT/frontend" && VITE_API_URL=http://localhost:3000/api npx vite build --outDir "$TMP/dist-ui" --emptyOutDir > "$TMP/frontend-build.log" 2>&1) \
   || { echo "Build frontend KO"; tail -5 "$TMP/frontend-build.log"; exit 1; }
-(cd "$ROOT/frontend" && nohup npx vite preview --outDir "$TMP/dist-ui" --port 5173 --strictPort > "$TMP/preview.log" 2>&1 & echo $! >> "$TMP/pids")
+(cd "$ROOT/frontend" && exec nohup node_modules/.bin/vite preview --outDir "$TMP/dist-ui" --port 5173 --strictPort > "$TMP/preview.log" 2>&1) &
+echo $! >> "$TMP/pids"
 
 for _ in $(seq 1 60); do
   b=$(curl -s -m 5 -o /dev/null -w "%{http_code}" http://localhost:3000/api/health || true)
