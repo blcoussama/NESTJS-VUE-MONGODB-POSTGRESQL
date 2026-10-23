@@ -66,7 +66,8 @@ export class User {
   @Prop({ required: true, unique: true, lowercase: true, trim: true })
   email: string;
 
-  @Prop({ required: true })
+  // bcrypt hash — never returned by queries unless explicitly selected
+  @Prop({ required: true, select: false })
   password: string;
 
   @Prop({ type: String, enum: UserRole, required: true })
@@ -75,20 +76,21 @@ export class User {
   @Prop({ default: false })
   isEmailVerified: boolean;
 
-  @Prop({ type: String, default: null })
+  // SHA-256 of the emailed token (the raw token is never stored)
+  @Prop({ type: String, default: null, select: false, index: true })
   emailVerificationToken: string | null;
 
   @Prop({ type: Date, default: null })
   emailVerificationExpiry: Date | null;
 
-  @Prop({ type: String, default: null })
+  // SHA-256 of the emailed token (the raw token is never stored)
+  @Prop({ type: String, default: null, select: false, index: true })
   passwordResetToken: string | null;
 
   @Prop({ type: Date, default: null })
   passwordResetExpiry: Date | null;
 
-  @Prop({ type: String, default: null })
-  refreshToken: string | null;
+  // Refresh tokens live in the `sessions` collection (see auth/schemas)
 
   // ─── Profile fields (common) ─────────────────────────────────────────────
 
@@ -121,7 +123,8 @@ export class User {
   @Prop({ type: String, default: null })
   portfolioUrl: string | null;
 
-  @Prop({ type: String, default: null })
+  // Private S3 key (cvs/<uuid>.pdf) — server-managed, never exposed via the API
+  @Prop({ type: String, default: null, select: false })
   cvKey: string | null;
 
   @Prop({ type: Boolean, default: false })

@@ -34,3 +34,9 @@ backend/coverage/
 CLAUDE-CODE/
 CLAUDE-CODE-CHAT-HISTORY/
 RAPPORT-LATEX/
+# Docker Compose : surcharges locales
+docker-compose.override.yml
+
+# Frontend : sorties de build / tests
+frontend/dist/
+frontend/coverage/

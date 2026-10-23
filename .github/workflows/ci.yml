@@ -1,0 +1,306 @@
+# CI PROFYLE v2 : verification uniquement (lint, build, tests, images Docker, securite).
+# Il n'y a volontairement AUCUN job de deploiement : le projet n'est pas deploye
+# a ce jour. Un job de deploiement ne sera ajoute que lorsqu'un vrai
+# environnement cible existera.
+#
+# Aucun secret GitHub n'est utilise : les variables ci-dessous sont des valeurs
+# factices, valables uniquement pour des conteneurs jetables du runner.
+
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# Droits minimaux pour le GITHUB_TOKEN de tous les jobs.
+permissions:
+  contents: read
+
+# Annule les runs obsoletes d'une meme branche/PR (jamais sur main : on garde
+# l'historique complet des verifications de la branche principale).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  backend:
+    name: Backend (lint, build, tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping:1})'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: profyle
+          POSTGRES_DB: profyle_test
+          # Base jetable du runner : pas de mot de passe a gerer.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U profyle -d profyle_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    # Valeurs factices : uniquement pour satisfaire le schema Joi du backend.
+    env:
+      NODE_ENV: test
+      PORT: "3000"
+      MONGODB_URI: mongodb://127.0.0.1:27017/profyle_test
+      DATABASE_URL: postgresql://profyle@127.0.0.1:5432/profyle_test
+      JWT_ACCESS_SECRET: ci-only-access-secret-not-used-anywhere-else
+      JWT_REFRESH_SECRET: ci-only-refresh-secret-not-used-anywhere-else
+      AWS_REGION: eu-west-3
+      AWS_ACCESS_KEY_ID: ci-dummy
+      AWS_SECRET_ACCESS_KEY: ci-dummy
+      AWS_BUCKET_NAME: ci-dummy
+      EMAIL_HOST: localhost
+      EMAIL_PORT: "587"
+      EMAIL_USER: ci-dummy
+      EMAIL_PASS: ci-dummy
+      EMAIL_FROM: no-reply@example.com
+      CLIENT_URL: http://localhost:5173
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Prisma 7 : le client est genere (pas de connexion requise) ; la CLI lit
+      # DATABASE_URL via prisma.config.ts.
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Prisma migrate deploy
+        run: npx prisma migrate deploy
+
+      # `npm run lint` utilise --fix (il modifierait l'arbre de travail du runner
+      # sans jamais echouer sur ce qu'il corrige) : on appelle ESLint sans --fix.
+      - name: Lint
+        run: npx eslint "{src,apps,libs,test}/**/*.ts"
+
+      - name: Build
+        run: npm run build
+
+      - name: Unit tests (coverage)
+        run: npm run test:cov
+
+      - name: E2E tests
+        run: npm run test:e2e
+
+      - name: Upload coverage
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-coverage
+          path: backend/coverage
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  frontend:
+    name: Frontend (type-check, lint, tests, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run type-check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  # ---------------------------------------------------------------------------
+  # Construit les images (sans push) puis fait un test de fumee de la stack
+  # docker compose avec des valeurs factices generees a la volee.
+  docker:
+    name: Docker (build + smoke test)
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    timeout-minutes: 25
+    env:
+      PROFYLE_TAG: ci
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build backend image (runtime)
+        uses: docker/build-push-action@v7
+        with:
+          context: ./backend
+          target: runtime
+          push: false
+          load: true
+          tags: profyle-backend:ci
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Build backend image (migrate)
+        uses: docker/build-push-action@v7
+        with:
+          context: ./backend
+          target: migrate
+          push: false
+          load: true
+          tags: profyle-migrate:ci
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./frontend
+          push: false
+          load: true
+          tags: profyle-frontend:ci
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+      - name: Smoke test (docker compose)
+        run: |
+          # .env jetable : valeurs factices / aleatoires, jamais de vrais secrets.
+          {
+            echo "MONGO_ROOT_PASSWORD=$(openssl rand -hex 16)"
+            echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)"
+            echo "JWT_ACCESS_SECRET=$(openssl rand -hex 32)"
+            echo "JWT_REFRESH_SECRET=$(openssl rand -hex 32)"
+            echo "AWS_REGION=eu-west-3"
+            echo "AWS_ACCESS_KEY_ID=ci-dummy"
+            echo "AWS_SECRET_ACCESS_KEY=ci-dummy"
+            echo "AWS_BUCKET_NAME=ci-dummy"
+            echo "EMAIL_HOST=localhost"
+            echo "EMAIL_USER=ci-dummy"
+            echo "EMAIL_PASS=ci-dummy"
+            echo "EMAIL_FROM=no-reply@example.com"
+          } > .env
+
+          docker compose up -d --no-build
+
+          ok=0
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8080/api/health >/dev/null 2>&1; then ok=1; break; fi
+            sleep 3
+          done
+          if [ "$ok" != 1 ]; then
+            echo "::error::La stack n'a pas repondu sur http://127.0.0.1:8080/api/health"
+            docker compose ps -a
+            docker compose logs --no-color
+            exit 1
+          fi
+
+          echo "--- API via le proxy nginx (health)"
+          curl -fsS http://127.0.0.1:8080/api/health; echo
+          echo "--- Swagger doit etre DESACTIVE en production (404 attendu)"
+          code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/api/docs)
+          echo "api/docs -> $code"
+          if [ "$code" != "404" ]; then echo "::error::Swagger est expose en production ($code)"; exit 1; fi
+          echo "--- SPA (fallback index.html)"
+          curl -fsS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8080/jobs
+          echo "--- En-tetes de securite"
+          curl -fsSI http://127.0.0.1:8080/ | grep -i -E "x-content-type-options|x-frame-options|content-security-policy"
+          echo "--- Migrations"
+          docker compose ps -a --format '{{.Service}} {{.State}} {{.ExitCode}}' | grep '^migrate exited 0'
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --no-color --tail=200
+
+      - name: Stop stack
+        if: always()
+        run: docker compose down -v
+
+  # ---------------------------------------------------------------------------
+  security-secrets:
+    name: Security (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # historique complet
+
+      # Image officielle epinglee. Scanne TOUT l'historique git. Les faux positifs
+      # connus sont listes dans .gitleaksignore (avec justification).
+      - name: Gitleaks (historique complet)
+        run: |
+          docker run --rm -v "$PWD:/repo" \
+            -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/repo \
+            zricethezav/gitleaks:v8.30.1 detect --source /repo --redact --no-banner --verbose
+
+  # ---------------------------------------------------------------------------
+  # npm audit des dependances de production. NON bloquant : l'audit depend de
+  # la base d'avisories (qui evolue sans commit) et signale aujourd'hui des
+  # failles high dans des paquets transitifs ; un echec bloquerait des PR sans
+  # rapport avec le correctif. Les resultats sont visibles en annotations et
+  # dans le resume du job. A passer en bloquant une fois le bilan assaini.
+  security-audit:
+    name: Security (npm audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: npm audit (backend, prod)
+        working-directory: backend
+        run: |
+          if ! npm audit --omit=dev --audit-level=high; then
+            echo "::warning title=npm audit backend::Vulnerabilites high/critical dans les dependances de production du backend"
+            echo "### npm audit backend : vulnerabilites high/critical detectees (non bloquant)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: npm audit (frontend, prod)
+        working-directory: frontend
+        run: |
+          if ! npm audit --omit=dev --audit-level=high; then
+            echo "::warning title=npm audit frontend::Vulnerabilites high/critical dans les dependances de production du frontend"
+            echo "### npm audit frontend : vulnerabilites high/critical detectees (non bloquant)" >> "$GITHUB_STEP_SUMMARY"
+          fi

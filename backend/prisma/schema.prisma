@@ -16,13 +16,12 @@ model Company {
   website     String?
   location    String?
   logoUrl     String?
-  ownerId     String   @db.Uuid // References MongoDB User._id
+  ownerId     String   @unique // References MongoDB User._id (ObjectId, not UUID) — one company per recruiter
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   jobs Job[]
 
-  @@index([ownerId])
   @@map("companies")
 }
 
@@ -34,14 +33,14 @@ model Job {
   title           String
   description     String
   location        String
-  jobType         String
-  experienceLevel String
+  jobType         String // full-time | part-time | internship | contract | freelance (CHECK constraint)
+  experienceLevel String // entry | junior | mid | senior | lead (CHECK constraint)
   requirements    String[]
-  salaryType      String
-  salary          Json?
+  salaryType      String // fixed | range | negotiable (CHECK constraint)
+  salary          Json? // { min?, max?, currency? }
   isOpen          Boolean  @default(true)
   companyId       String   @db.Uuid
-  recruiterId     String   @db.Uuid // References MongoDB User._id
+  recruiterId     String // References MongoDB User._id (ObjectId, not UUID)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -51,7 +50,7 @@ model Job {
 
   @@index([companyId])
   @@index([recruiterId])
-  @@index([isOpen])
+  @@index([isOpen, createdAt])
   @@map("jobs")
 }
 
@@ -61,9 +60,9 @@ model Job {
 model Application {
   id              String            @id @default(uuid()) @db.Uuid
   jobId           String            @db.Uuid
-  applicantId     String            @db.Uuid // References MongoDB User._id
-  experienceYears Int
-  experienceLevel String
+  applicantId     String // References MongoDB User._id (ObjectId, not UUID)
+  experienceYears Int // >= 0 (CHECK constraint)
+  experienceLevel String // entry | junior | mid | senior | lead (CHECK constraint)
   status          ApplicationStatus @default(PENDING)
   withdrawnAt     DateTime?
   expiresAt       DateTime?
@@ -75,6 +74,7 @@ model Application {
   @@unique([jobId, applicantId])
   @@index([applicantId])
   @@index([status])
+  @@index([expiresAt])
   @@map("applications")
 }
 
@@ -84,7 +84,7 @@ model Application {
 model SavedJob {
   id        String   @id @default(uuid()) @db.Uuid
   jobId     String   @db.Uuid
-  userId    String   @db.Uuid // References MongoDB User._id
+  userId    String // References MongoDB User._id (ObjectId, not UUID)
   createdAt DateTime @default(now())
 
   job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
